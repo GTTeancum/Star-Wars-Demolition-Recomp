@@ -15,8 +15,6 @@ internal sealed class PresentationRenderer : IDisposable
         in vec2 vUv;
         uniform sampler2D uSource;
         uniform vec2 uSourceSize;
-        uniform int uDedither;
-        uniform int uDeditherStep;
         uniform int uLinearFilter;
         uniform int uLoadingUiRestore;
         uniform sampler2D uLoadingCard;
@@ -69,68 +67,37 @@ internal sealed class PresentationRenderer : IDisposable
                     }
                 }
             }
-            if (uDedither == 0) {
-                if (uLoadingUiRestore != 0 && !loadingCardPixel) {
-                    vec2 texel = 1.0 / uSourceSize;
-                    vec3 n  = sampleLinear(vUv + vec2( 0.0, -texel.y));
-                    vec3 e  = sampleLinear(vUv + vec2( texel.x,  0.0));
-                    vec3 s  = sampleLinear(vUv + vec2( 0.0,  texel.y));
-                    vec3 w  = sampleLinear(vUv + vec2(-texel.x,  0.0));
-                    vec3 ne = sampleLinear(vUv + vec2( texel.x, -texel.y));
-                    vec3 se = sampleLinear(vUv + vec2( texel.x,  texel.y));
-                    vec3 sw = sampleLinear(vUv + vec2(-texel.x,  texel.y));
-                    vec3 nw = sampleLinear(vUv + vec2(-texel.x, -texel.y));
+            if (uLoadingUiRestore != 0 && !loadingCardPixel) {
+                vec2 texel = 1.0 / uSourceSize;
+                vec3 n  = sampleLinear(vUv + vec2( 0.0, -texel.y));
+                vec3 e  = sampleLinear(vUv + vec2( texel.x,  0.0));
+                vec3 s  = sampleLinear(vUv + vec2( 0.0,  texel.y));
+                vec3 w  = sampleLinear(vUv + vec2(-texel.x,  0.0));
+                vec3 ne = sampleLinear(vUv + vec2( texel.x, -texel.y));
+                vec3 se = sampleLinear(vUv + vec2( texel.x,  texel.y));
+                vec3 sw = sampleLinear(vUv + vec2(-texel.x,  texel.y));
+                vec3 nw = sampleLinear(vUv + vec2(-texel.x, -texel.y));
 
-                    vec3 lo = min(center, min(min(n, e), min(s, w)));
-                    lo = min(lo, min(min(ne, se), min(sw, nw)));
-                    vec3 hi = max(center, max(max(n, e), max(s, w)));
-                    hi = max(hi, max(max(ne, se), max(sw, nw)));
-                    float localRange = max(
-                        hi.r - lo.r,
-                        max(hi.g - lo.g, hi.b - lo.b));
+                vec3 lo = min(center, min(min(n, e), min(s, w)));
+                lo = min(lo, min(min(ne, se), min(sw, nw)));
+                vec3 hi = max(center, max(max(n, e), max(s, w)));
+                hi = max(hi, max(max(ne, se), max(sw, nw)));
+                float localRange = max(
+                    hi.r - lo.r,
+                    max(hi.g - lo.g, hi.b - lo.b));
 
-                    vec3 average =
-                        (center * 4.0 + n + e + s + w +
-                         (ne + se + sw + nw) * 0.5) / 10.0;
-                    float restore = 1.0 - smoothstep(0.09, 0.32, localRange);
-                    vec3 denoised = mix(center, average, restore * 0.65);
-                    vec3 blur = (denoised * 4.0 + n + e + s + w) / 8.0;
-                    vec3 sharpened = denoised + (denoised - blur) *
-                        (0.45 * restore);
-                    oColor = vec4(clamp(sharpened, lo - 0.025, hi + 0.025), 1.0);
-                    return;
-                }
-                oColor = vec4(center, 1.0);
+                vec3 average =
+                    (center * 4.0 + n + e + s + w +
+                     (ne + se + sw + nw) * 0.5) / 10.0;
+                float restore = 1.0 - smoothstep(0.09, 0.32, localRange);
+                vec3 denoised = mix(center, average, restore * 0.65);
+                vec3 blur = (denoised * 4.0 + n + e + s + w) / 8.0;
+                vec3 sharpened = denoised + (denoised - blur) *
+                    (0.45 * restore);
+                oColor = vec4(clamp(sharpened, lo - 0.025, hi + 0.025), 1.0);
                 return;
             }
-
-            int s = max(uDeditherStep, 1);
-            vec3 n  = sourcePixel(p + ivec2( 0, -s));
-            vec3 ne = sourcePixel(p + ivec2( s, -s));
-            vec3 e  = sourcePixel(p + ivec2( s,  0));
-            vec3 se = sourcePixel(p + ivec2( s,  s));
-            vec3 so = sourcePixel(p + ivec2( 0,  s));
-            vec3 sw = sourcePixel(p + ivec2(-s,  s));
-            vec3 w  = sourcePixel(p + ivec2(-s,  0));
-            vec3 nw = sourcePixel(p + ivec2(-s, -s));
-
-            vec3 lo = min(center, min(min(n, ne), min(e, se)));
-            lo = min(lo, min(min(so, sw), min(w, nw)));
-            vec3 hi = max(center, max(max(n, ne), max(e, se)));
-            hi = max(hi, max(max(so, sw), max(w, nw)));
-            float localRange = max(
-                hi.r - lo.r,
-                max(hi.g - lo.g, hi.b - lo.b));
-
-            // A PS1 ordered-dither cell is a low-amplitude, high-frequency
-            // variation. Average that variation only inside low-contrast
-            // regions; geometry, text, HUD edges and texture detail exceed
-            // the upper threshold and remain untouched.
-            vec3 average = (center * 4.0 + n + ne + e + se + so + sw + w + nw)
-                / 12.0;
-            float strength =
-                1.0 - smoothstep(0.045, 0.14, localRange);
-            oColor = vec4(mix(center, average, strength), 1.0);
+            oColor = vec4(center, 1.0);
         }
         """;
 
@@ -164,11 +131,37 @@ internal sealed class PresentationRenderer : IDisposable
             vec3 sw = sampleLinear(vUv + vec2(-1.0,  1.0) * uInvResolution);
             vec3 se = sampleLinear(vUv + vec2( 1.0,  1.0) * uInvResolution);
             vec3 m  = sampleLinear(vUv);
+            vec3 n  = sampleLinear(vUv + vec2( 0.0, -1.0) * uInvResolution);
+            vec3 e  = sampleLinear(vUv + vec2( 1.0,  0.0) * uInvResolution);
+            vec3 s  = sampleLinear(vUv + vec2( 0.0,  1.0) * uInvResolution);
+            vec3 w  = sampleLinear(vUv + vec2(-1.0,  0.0) * uInvResolution);
 
             float lumaNW = luma(nw), lumaNE = luma(ne);
             float lumaSW = luma(sw), lumaSE = luma(se), lumaM = luma(m);
             float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
             float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+
+            // Preserve isolated one-pixel extrema such as HUD glyph strokes,
+            // targeting reticles and gauge ticks. A silhouette has at least
+            // one same-side neighbour and continues through normal FXAA.
+            float lumaN = luma(n), lumaE = luma(e);
+            float lumaS = luma(s), lumaW = luma(w);
+            float oppositeMax = max(max(lumaN, lumaS), max(lumaE, lumaW));
+            float oppositeMin = min(min(lumaN, lumaS), min(lumaE, lumaW));
+            bool centerExtreme =
+                lumaM > oppositeMax + 0.10 ||
+                lumaM < oppositeMin - 0.10;
+            bool thinStroke =
+                (abs(lumaM - lumaN) > 0.12 &&
+                 abs(lumaM - lumaS) > 0.12 &&
+                 abs(lumaN - lumaS) < 0.10) ||
+                (abs(lumaM - lumaE) > 0.12 &&
+                 abs(lumaM - lumaW) > 0.12 &&
+                 abs(lumaE - lumaW) < 0.10);
+            if (centerExtreme && thinStroke) {
+                oColor = vec4(m, 1.0);
+                return;
+            }
 
             vec2 dir;
             dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
@@ -199,7 +192,7 @@ internal sealed class PresentationRenderer : IDisposable
     int _width, _height;
     int _lastSourceWidth, _lastSourceHeight, _lastOutputWidth, _lastOutputHeight;
     bool _lastFxaa;
-    int _upscaleSourceSize, _upscaleDedither, _upscaleDeditherStep;
+    int _upscaleSourceSize;
     int _upscaleLinearFilter, _upscaleLoadingUiRestore;
     int _upscaleLoadingCardOverlay, _upscaleLoadingCardRect;
     int _upscaleLoadingCardSampleRect;
@@ -227,10 +220,6 @@ internal sealed class PresentationRenderer : IDisposable
         _gl.Uniform1(_gl.GetUniformLocation(_upscaleProgram, "uSource"), 0);
         _gl.Uniform1(_gl.GetUniformLocation(_upscaleProgram, "uLoadingCard"), 1);
         _upscaleSourceSize = _gl.GetUniformLocation(_upscaleProgram, "uSourceSize");
-        _upscaleDedither =
-            _gl.GetUniformLocation(_upscaleProgram, "uDedither");
-        _upscaleDeditherStep =
-            _gl.GetUniformLocation(_upscaleProgram, "uDeditherStep");
         _upscaleLinearFilter =
             _gl.GetUniformLocation(_upscaleProgram, "uLinearFilter");
         _upscaleLoadingUiRestore =
@@ -314,16 +303,13 @@ internal sealed class PresentationRenderer : IDisposable
 
         PreparePass(_upscaleFbo, _upscaleProgram, sourceTexture);
         _gl.Uniform2(_upscaleSourceSize, (float)sourceWidth, sourceHeight);
-        bool dedither =
-            !ConfigManager.View.Ps1Dithering &&
-            Runtime.GameTitle.Contains(
-                "2nd Offense", StringComparison.Ordinal) &&
-            RecompOne.Runtime.Hle.GpuHle.Active &&
-            RecompOne.Runtime.Hle.GpuHle.GameplayActive;
+        bool isV82 = Runtime.GameTitle.Contains(
+            "2nd Offense", StringComparison.Ordinal);
+        bool isDemolition = Runtime.GameTitle.Contains(
+            "Demolition", StringComparison.Ordinal);
         bool offGameplayV82Ui =
             ConfigManager.View.HighResolutionTextures &&
-            Runtime.GameTitle.Contains(
-                "2nd Offense", StringComparison.Ordinal) &&
+            isV82 &&
             RecompOne.Runtime.Hle.GpuHle.Active &&
             !RecompOne.Runtime.Hle.GpuHle.GameplayActive;
         // The presentation source is the native 320x240 canvas multiplied by
@@ -334,21 +320,19 @@ internal sealed class PresentationRenderer : IDisposable
             sourceWidth >= 320 && sourceHeight >= 240;
         bool preTickLoadingCard =
             ConfigManager.View.HighResolutionTextures &&
-            Runtime.GameTitle.Contains(
-                "2nd Offense", StringComparison.Ordinal) &&
+            isV82 &&
             RecompOne.Runtime.Hle.GpuHle.Active &&
             RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
             RecompOne.Runtime.Hle.GpuHle.DebugGameplayTick == 0 &&
             validV82PresentationSource;
-        bool uiPresentation = offGameplayV82Ui || preTickLoadingCard;
+        bool frontendPresentation =
+            RecompOne.Runtime.Hle.GpuHle.Active &&
+            !RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
+            (isV82 || isDemolition);
+        bool uiPresentation = frontendPresentation || preTickLoadingCard;
         bool loadingUiSource =
-            uiPresentation && validV82PresentationSource;
-        _gl.Uniform1(_upscaleDedither, dedither ? 1 : 0);
-        _gl.Uniform1(
-            _upscaleDeditherStep,
-            ConfigManager.View.HighResolution3D
-                ? ConfigManager.View.InternalResolutionScale
-                : 1);
+            (offGameplayV82Ui || preTickLoadingCard) &&
+            validV82PresentationSource;
         _gl.Uniform1(_upscaleLinearFilter, 0);
         _gl.Uniform1(_upscaleLoadingUiRestore, loadingUiSource ? 1 : 0);
         string? importedArena =

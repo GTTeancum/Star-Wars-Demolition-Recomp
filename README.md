@@ -15,6 +15,9 @@ loose files only: no CUE or BIN is opened by the finished executable.
   world ordering table to the host GPU.
 - Draws textured arena terrain, the selected vehicle, opponents, and a bounded
   set of nearby props at gameplay speed.
+- Adds a gameplay-only 16:9 view with widened terrain and object visibility,
+  perspective-correct textures, true-colour output without dithering, and
+  HUD-safe FXAA while preserving the authored 4:3 frontend.
 
 This is intentionally a playability build, not a fidelity-complete port.
 
@@ -44,8 +47,10 @@ dotnet run --project tools\recompone-reference\RecompOne.Recompiler `
 python tools\recompone-demolition\publish_loose.py
 ```
 
-The publisher places the PC host and its runtime files directly in `game`.
-Launch it without arguments:
+The publisher places one self-contained `StarWarsDemolitionPC.exe` directly in
+`game`; managed and native runtime dependencies are bundled, so no separate
+.NET runtime or sidecar DLLs are required. Retail game data remains external as
+loose files. Launch it without arguments:
 
 ```powershell
 game\StarWarsDemolitionPC.exe
@@ -61,12 +66,12 @@ dotnet run --project reference\generated\StarWarsDemolitionPC.csproj `
 
 ## Current tradeoffs
 
-- Visibility defaults to twenty nearby objects per frame, enough to retain the
-  player vehicle and immediate combat scene while keeping translated geometry
-  responsive. Set `RECOMPONE_DEMOLITION_DRAW_BUDGET` from 1 through 64 to
-  trade speed for scene density.
-- The output keeps the original 320x240 rendering style and native HUD layout;
-  renderer modernization is outside this playability milestone.
+- Visibility defaults to 64 nearby objects per frame, covering the complete
+  measured Tatooine spawn set. Set `RECOMPONE_DEMOLITION_DRAW_BUDGET` from 1
+  through 4096 to trade speed for scene density in unusually busy arenas.
+- The frontend and HUD keep their native 4:3 layout; full terrain fidelity and
+  longer-range world visibility remain tracked separately from widescreen edge
+  coverage.
 
 Generated C#, build products, captures, and retail media remain local and are
 not tracked.

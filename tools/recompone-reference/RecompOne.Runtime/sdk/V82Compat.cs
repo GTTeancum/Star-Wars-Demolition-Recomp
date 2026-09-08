@@ -117,6 +117,7 @@ public static class V82Compat
     static int _nativeMainMenuEntryCount;
     static int _nativeModelLifecycleTraceCount;
     static bool _postGameplayShellMenuPending;
+    static bool _retiredGameplayRenderFence;
     static readonly HashSet<string> SeenNativeOptionText = [];
     static bool _nativeOptionsActive;
     public static int? GetFirstPressedNativeControlPadButton(int player) =>
@@ -254,11 +255,22 @@ public static class V82Compat
             }
         }
 
+        bool pauseTitle = text == "PAUSED";
+        bool objectivesTitle = text == "QUEST OBJECTIVES";
+        // The confirmation title begins with three retail font-control bytes,
+        // which ReadNativeAscii deliberately renders as question marks.
+        bool quitConfirmation = text.Contains(
+            "ARE YOU SURE?", StringComparison.Ordinal);
         if (GpuHle.GameplayActive &&
-            text is "PAUSED" or "QUEST OBJECTIVES" or "ARE YOU SURE?")
+            (pauseTitle || objectivesTitle || quitConfirmation))
         {
             InputManager.SignalNativeGameplayMenu();
             GpuHle.SignalNativeModal();
+            InputManager.SignalScriptStage(pauseTitle
+                ? "pause_menu"
+                : objectivesTitle
+                    ? "pause_objectives"
+                    : "pause_quit_confirm");
         }
 
         if (TraceNativeOptions && SeenNativeOptionText.Add(text))
@@ -273,6 +285,14 @@ public static class V82Compat
         }
 
         string? stage = null;
+        if (text == "SELECT ARENA")
+            stage = "demolition_select_arena";
+        else if (text == "CHOOSE CONTESTANT")
+            stage = "demolition_choose_contestant";
+        else if (text == "CHOOSE CONTESTANTS")
+            stage = "demolition_choose_contestants";
+        else if (text == "CHOOSE OPPONENTS")
+            stage = "demolition_choose_opponents";
         if (text == "OPTIONS")
         {
             _nativeOptionsActive = true;
@@ -294,7 +314,260 @@ public static class V82Compat
         }
 
         if (stage != null)
-            InputManager.SignalScriptStage(stage, captureDelayPolls: 12);
+        {
+            bool threeDimensionalSelector =
+                stage.StartsWith(
+                    "demolition_", StringComparison.OrdinalIgnoreCase);
+            InputManager.SignalScriptStage(
+                stage,
+                captureDelayPolls: threeDimensionalSelector ? 240 : 12);
+        }
+    }
+
+    public static void TraceDemolitionTextObject(CpuContext c, IMemory m)
+    {
+        if (!TraceNativeOptions || c.RA != 0x8001B0ECu)
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint textObject = c.V0;
+        uint packet = textObject == 0u ? 0u : m.ReadU32(textObject);
+        uint ot = c.S0;
+        uint oldHead = ot == 0u ? 0u : m.ReadU32(ot);
+        Console.Error.WriteLine(
+            $"[DemolitionTextObject] object=0x{textObject:X8} " +
+            $"packet=0x{packet:X8} ot=0x{ot:X8} head=0x{oldHead:X8} " +
+            $"gp=0x{c.GP:X8}");
+    }
+
+    public static void TraceDemolitionModelCreate(CpuContext c, IMemory m)
+    {
+        if (!TraceDemolitionFrontend || c.RA < 0x80100000u ||
+            c.RA >= 0x80120000u || _demolitionModelCreateTraceCount++ >= 64)
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint model = c.V0;
+        string words = model == 0u
+            ? "null"
+            : string.Join(',', Enumerable.Range(0, 16)
+                .Select(i => $"{m.ReadU32(model + (uint)i * 4u):X8}"));
+        Console.Error.WriteLine(
+            $"[DemolitionModelCreate] caller=0x{c.RA:X8} " +
+            $"model=0x{model:X8} words={words}");
+    }
+
+    public static void TraceDemolitionSelectorAcceptTarget(
+        CpuContext c,
+        IMemory m)
+    {
+        if (!TraceDemolitionFrontend || c.RA != 0x801056B4u)
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint target = c.V0;
+        uint callback = target == 0u ? 0u : m.ReadU32(target);
+        uint parent = target == 0u ? 0u : m.ReadU32(target + 0x18u);
+        Console.Error.WriteLine(
+            $"[DemolitionSelectorAcceptTarget] target=0x{target:X8} " +
+            $"callback=0x{callback:X8} parent=0x{parent:X8}");
+    }
+
+    static readonly bool TraceDemolitionFrontend =
+        Environment.GetEnvironmentVariable(
+            "RECOMPONE_TRACE_DEMOLITION_FRONTEND") == "1";
+    static readonly Dictionary<uint, int> DemolitionFrontendStateCounts = [];
+
+    public static void TraceDemolitionContestantState(CpuContext c, IMemory m)
+        => TraceDemolitionFrontendState(
+            c, m, "demolition_choose_contestant", "contestant");
+
+    public static void TraceDemolitionOpponentsState(CpuContext c, IMemory m)
+        => TraceDemolitionFrontendState(
+            c, m, "demolition_choose_opponents", "opponents");
+
+    static int _demolitionFrontendTransitionTraceCount;
+
+    public static void TraceDemolitionFrontendTransition(
+        CpuContext c,
+        IMemory m)
+    {
+        if (!TraceDemolitionFrontend ||
+            _demolitionFrontendTransitionTraceCount++ >= 256)
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint transition = c.A0;
+        uint script = c.A2;
+        byte started = m.ReadU8(transition + 9u);
+        byte animationId = m.ReadU8(transition + 10u);
+        uint animation = animationId == 0u
+            ? 0u
+            : 0x800CE1B8u + (animationId - 1u) * 36u;
+        ushort animationFlags = animation == 0u
+            ? (ushort)0u
+            : m.ReadU16(animation + 4u);
+        ushort animationFrame = animation == 0u
+            ? (ushort)0u
+            : m.ReadU16(animation + 8u);
+        ushort animationDuration = animation == 0u
+            ? (ushort)0u
+            : m.ReadU16(animation + 10u);
+        uint child = m.ReadU32(transition + 0x74u);
+        byte scriptValue = script == 0u ? (byte)0u : m.ReadU8(script);
+        Console.Error.WriteLine(
+            $"[DemolitionFrontendTransition] state={c.A1} " +
+            $"object=0x{transition:X8} script=0x{script:X8}/0x{scriptValue:X2} " +
+            $"started={started} animation={animationId} " +
+            $"anim=0x{animation:X8} flags=0x{animationFlags:X4} " +
+            $"frame={animationFrame} duration={animationDuration} " +
+            $"child=0x{child:X8}");
+    }
+
+    static int _demolitionFrontendControllerTraceCount;
+    static readonly Stack<(uint Object, uint State, uint Context)>
+        DemolitionFrontendControllerCalls = [];
+
+    public static void TraceDemolitionFrontendController(
+        CpuContext c,
+        IMemory m)
+    {
+        if (!TraceDemolitionFrontend)
+            return;
+
+        DemolitionFrontendControllerCalls.Push((c.A0, c.A1, c.A2));
+
+        if (c.A1 is not (1u or 2u or 5u or 6u or 10u or 19u))
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint controller = c.A0;
+        uint child = m.ReadU32(controller + 0x74u);
+        bool matchingCompletion = c.A1 == 5u && child == c.A2;
+        if (c.A1 == 5u && !matchingCompletion)
+            return;
+        if (_demolitionFrontendControllerTraceCount++ >= 256)
+            return;
+        Console.Error.WriteLine(
+            $"[DemolitionFrontendController] state={c.A1} " +
+            $"object=0x{controller:X8} context=0x{c.A2:X8} " +
+            $"flow={(sbyte)m.ReadU8(controller + 9u)} " +
+            $"child=0x{child:X8} match={child == c.A2}");
+    }
+
+    public static void TraceDemolitionFrontendControllerExit(
+        CpuContext c,
+        IMemory m)
+    {
+        if (!TraceDemolitionFrontend ||
+            DemolitionFrontendControllerCalls.Count == 0)
+            return;
+
+        var call = DemolitionFrontendControllerCalls.Pop();
+        if (call.State is not (1u or 2u or 5u or 6u or 10u or 19u))
+            return;
+
+        m = Dispatcher.UnwrapMemory(m);
+        uint child = m.ReadU32(call.Object + 0x74u);
+        Console.Error.WriteLine(
+            $"[DemolitionFrontendControllerExit] state={call.State} " +
+            $"object=0x{call.Object:X8} context=0x{call.Context:X8} " +
+            $"result=0x{c.V0:X8} " +
+            $"flow={(sbyte)m.ReadU8(call.Object + 9u)} " +
+            $"child=0x{child:X8}");
+    }
+
+    public static void TraceDemolitionFrontendLoopExit(
+        CpuContext c,
+        IMemory m)
+    {
+        InputManager.SignalScriptStage(
+            "demolition_frontend_complete", captureDelayPolls: 30);
+        if (TraceDemolitionFrontend)
+            Console.Error.WriteLine(
+                $"[DemolitionFrontendLoopExit] result=0x{c.V0:X8}");
+    }
+
+    public static void TraceDemolitionShellFrontendExit(
+        CpuContext c,
+        IMemory m)
+    {
+        InputManager.SignalScriptStage(
+            "demolition_shell_frontend_exit", captureDelayPolls: 30);
+        if (TraceDemolitionFrontend)
+        {
+            m = Dispatcher.UnwrapMemory(m);
+            Console.Error.WriteLine(
+                $"[DemolitionShellFrontendExit] result=0x{c.V0:X8} " +
+                $"route={(sbyte)m.ReadU8(0x8006AB18u - 0x54B8u)} " +
+                $"selection={(sbyte)m.ReadU8(0x8006AB18u - 0x4920u)}");
+        }
+    }
+
+    public static void TraceDemolitionArenaState(CpuContext c, IMemory m)
+        => TraceDemolitionFrontendState(
+            c, m, "demolition_select_arena", "arena");
+
+    public static void TraceDemolitionProfileState(CpuContext c, IMemory m)
+        => TraceDemolitionFrontendState(
+            c, m, "demolition_profile", "profile");
+
+    static void TraceDemolitionFrontendState(
+        CpuContext c,
+        IMemory m,
+        string stage,
+        string menu)
+    {
+        // State 16 is the native draw callback. It recurs while the selector
+        // is visible, making it a stable process-local input/capture seam even
+        // when the label itself is among the packets currently under repair.
+        if (c.A1 == 16u)
+        {
+            // A newly constructed shell selector owns valid visibility data;
+            // stale level rendering from the prior match is fully unwound.
+            _retiredGameplayRenderFence = false;
+            InputManager.SignalScriptStage(stage, captureDelayPolls: 240);
+        }
+
+        if (!TraceDemolitionFrontend)
+            return;
+
+        uint menuKey = menu switch
+        {
+            "arena" => 0xA0000000u,
+            "profile" => 0xB0000000u,
+            "opponents" => 0xD0000000u,
+            _ => 0xC0000000u,
+        };
+        uint key = menuKey | c.A1;
+        int count = DemolitionFrontendStateCounts.TryGetValue(key, out int seen)
+            ? seen + 1
+            : 1;
+        DemolitionFrontendStateCounts[key] = count;
+        m = Dispatcher.UnwrapMemory(m);
+        uint input = m.ReadU32(0x8006B77Cu);
+        if (count <= 8 || (count % 300) == 0 || input != 0u)
+        {
+            byte[] ui80 = Enumerable.Range(0, 16)
+                .Select(i => m.ReadU8(c.A0 + 0x80u + (uint)i))
+                .ToArray();
+            uint child = m.ReadU32(c.A0 + 0x14u);
+            uint model = child == 0u ? 0u : m.ReadU32(child + 0x14u);
+            uint childFlags = child == 0u ? 0u : m.ReadU32(child + 4u);
+            uint modelFlags = model == 0u ? 0u : m.ReadU32(model + 4u);
+            uint modelMesh = model == 0u ? 0u : m.ReadU32(model + 0x40u);
+            uint modelResource = model == 0u ? 0u : m.ReadU32(model + 0x5Cu);
+            uint activeHead = m.ReadU32(c.GP + 0x1030u);
+            Console.Error.WriteLine(
+                $"[DemolitionFrontend] menu={menu} state={c.A1} " +
+                $"count={count} caller=0x{c.RA:X8} object=0x{c.A0:X8} " +
+                $"context=0x{c.A2:X8} input=0x{input:X8} " +
+                $"child=0x{child:X8}/0x{childFlags:X8} " +
+                $"model=0x{model:X8}/0x{modelFlags:X8} " +
+                $"mesh=0x{modelMesh:X8} resource=0x{modelResource:X8} " +
+                $"active=0x{activeHead:X8} " +
+                $"ui80={Convert.ToHexString(ui80)}");
+        }
     }
 
     static string ReadNativeAscii(IMemory m, uint address, int maxLength)
@@ -380,6 +653,10 @@ public static class V82Compat
     static readonly Stack<uint> SpuMallocRequests = new();
     static readonly Stack<uint[]> ShellDecodeCallers = new();
     static readonly Stack<(uint FrameSp, uint SourceRect)> ShellImageDecodeFrames = new();
+    static readonly bool TraceDemolitionCard =
+        Environment.GetEnvironmentVariable("RECOMPONE_TRACE_DEMOLITION_CARD") == "1";
+    static int _demolitionCardTraceCount;
+    static int _demolitionModelCreateTraceCount;
     static readonly Stack<(uint Width, uint Height, uint AlignWidth, uint AlignHeight, uint LimitWidth, uint LimitHeight)> VramRequests = new();
     static readonly Stack<bool> SelectorOwnedVramRequests = new();
     static readonly List<GuestVramReservation> GuestVramReservations = [];
@@ -566,15 +843,19 @@ public static class V82Compat
     // the ground vanished for that frame - while producing an identical edge
     // result. See tools/recompone-v8-2/analyze_terrain_flicker.py.
     //
-    // 4 cells is where the outer-left hole count reaches zero; 2 leaves 536.
+    // V8:2 needs 4 cells. Demolition can safely add 8; larger blind spans can
+    // overrun the arena's authored packet ordering and damage backdrop draws.
     const int DefaultTerrainRowCellPadding = 4;
+    const int DemolitionTerrainRowCellPadding = 8;
     static readonly int TerrainRowCellPadding =
         int.TryParse(
             Environment.GetEnvironmentVariable(
                 "RECOMPONE_V82_TERRAIN_ROW_CELL_PADDING"),
             out int terrainRowCellPadding)
             ? Math.Clamp(terrainRowCellPadding, 0, 16)
-            : DefaultTerrainRowCellPadding;
+            : IsDemolition
+                ? DemolitionTerrainRowCellPadding
+                : DefaultTerrainRowCellPadding;
     static bool _terrainRowCellPaddingLogged;
     static readonly int TerrainPolygonPaddingCells =
         int.TryParse(
@@ -1216,12 +1497,13 @@ public static class V82Compat
     public static void RecordCameraPose(CpuContext c, IMemory m)
     {
         m = Dispatcher.UnwrapMemory(m);
-        CamX = unchecked((int)m.ReadU32(c.GP + 0xF3Cu));
-        CamY = unchecked((int)m.ReadU32(c.GP + 0xF40u));
-        CamZ = unchecked((int)m.ReadU32(c.GP + 0xF44u));
+        CamX = unchecked((int)m.ReadU32(c.GP + CameraXOffset));
+        CamY = unchecked((int)m.ReadU32(c.GP + CameraYOffset));
+        CamZ = unchecked((int)m.ReadU32(c.GP + CameraZOffset));
         for (int i = 0; i < 9; i++)
             CamMatrix[i] =
-                unchecked((short)m.ReadU16(c.GP + 0xF28u + (uint)(i * 2)));
+                unchecked((short)m.ReadU16(
+                    c.GP + CameraMatrixOffset + (uint)(i * 2)));
     }
 
     public static void BeginObjectCensus() => _censusOpen = true;
@@ -1325,6 +1607,30 @@ public static class V82Compat
     const uint DemolitionTerrainPageTable = 0x800C97C8u;
     static bool IsDemolition => Runtime.GameTitle.Contains(
         "Demolition", StringComparison.OrdinalIgnoreCase);
+    // Demolition is a later build of the same engine. Its camera block is
+    // shifted within the global area, while the contained fields retain the
+    // same layout and meaning as V8: Second Offense.
+    static uint CameraProjectionOffset => IsDemolition ? 0xE48u : 0xED8u;
+    static uint CameraWidthOffset => IsDemolition ? 0xE4Cu : 0xEDCu;
+    static uint CameraHeightOffset => IsDemolition ? 0xE90u : 0xF20u;
+    static uint CameraMatrixOffset => IsDemolition ? 0xE98u : 0xF28u;
+    static uint CameraXOffset => IsDemolition ? 0xEACu : 0xF3Cu;
+    static uint CameraYOffset => IsDemolition ? 0xEB0u : 0xF40u;
+    static uint CameraZOffset => IsDemolition ? 0xEB4u : 0xF44u;
+    static uint TerrainFocalOffset => IsDemolition ? 0xD00u : 0xDB4u;
+    static uint PacketCursorOffset => IsDemolition ? 0x5E8u : 0x610u;
+    static uint PrimitiveHighWaterOffset => IsDemolition ? 0xC48u : 0xCE4u;
+    static uint PrimitiveLimitOffset => IsDemolition ? 0xC3Cu : 0xCDCu;
+    static uint NativePrimitiveBase => IsDemolition
+        ? 0x80074E40u
+        : 0x80074A68u;
+    static uint NativePrimitiveSize => IsDemolition ? 0x28000u : 0x20000u;
+    static bool UseExpandedPrimitiveBuffers =>
+        IsMaximumLevelOfDetail() ||
+        (IsDemolition &&
+         ConfigManager.View.HighResolution3D &&
+         ConfigManager.View.Widescreen &&
+         GpuHle.WideAspect > GpuHle.BaseAspect + 0.001f);
     static uint TerrainTextureTable => IsDemolition
         ? DemolitionTerrainTextureTable
         : V82TerrainTextureTable;
@@ -1743,7 +2049,8 @@ public static class V82Compat
     static void RestoreShellDecodeFrame(CpuContext c, IMemory m)
     {
         if (ShellImageDecodeFrames.Count != 0 &&
-            c.RA is 0x801106D8u or 0x801106E4u)
+            c.RA is 0x801106D8u or 0x801106E4u or
+                    0x8010F008u or 0x8010F014u)
         {
             var frame = ShellImageDecodeFrames.Peek();
             c.SP = frame.FrameSp;
@@ -1891,6 +2198,7 @@ public static class V82Compat
             m.WriteU32(header, 0u);
             m.WriteU32(header + 4u, total >> 3);
             c.V0 = payload;
+            RestoreShellDecodeFrame(c, m);
             return;
         }
 
@@ -2029,8 +2337,28 @@ public static class V82Compat
     }
 
     public static void RunDemolitionShellVlc(CpuContext c, IMemory m)
-        => RunVlcRegion(
+    {
+        uint source = c.A0;
+        uint target = c.A1;
+        uint stack = c.SP;
+        uint returnAddress = c.RA;
+        if (_traceVram)
+        {
+            Console.Error.WriteLine(
+                $"[DemolitionShellVlc] begin source=0x{source:X8} target=0x{target:X8} " +
+                $"sp=0x{stack:X8} ra=0x{returnAddress:X8}");
+        }
+
+        RunVlcRegion(
             c, m, 0x8010F644u, 0x8010FB50u, "DEMOLITION SHELL");
+
+        if (_traceVram)
+        {
+            Console.Error.WriteLine(
+                $"[DemolitionShellVlc] end source=0x{source:X8} target=0x{target:X8} " +
+                $"v0=0x{c.V0:X8} v1=0x{c.V1:X8} a0=0x{c.A0:X8} a1=0x{c.A1:X8}");
+        }
+    }
 
     // Current checked-in generated sources predate the SHELL replacement
     // hook. Keep their original body compile-reachable while routing every
@@ -2456,9 +2784,10 @@ public static class V82Compat
     public static void BeginDemolitionObjectRender(CpuContext c, IMemory m)
     {
         m = Dispatcher.UnwrapMemory(m);
+        uint packetStart = m.ReadU32(c.GP + 0x5E8u);
         ObjectRenderScopes.Push(new ObjectRenderScope(
             c.A0,
-            m.ReadU32(c.GP + 0x5E8u),
+            packetStart,
             c.RA,
             false,
             null));
@@ -2860,7 +3189,7 @@ public static class V82Compat
             return;
 
         m = Dispatcher.UnwrapMemory(m);
-        uint address = c.GP + 0xEDCu;
+        uint address = c.GP + CameraWidthOffset;
         uint nativeWidth = m.ReadU32(address);
         if (nativeWidth == 0u || nativeWidth > 0x00100000u)
             return;
@@ -2908,7 +3237,7 @@ public static class V82Compat
             return;
 
         m = Dispatcher.UnwrapMemory(m);
-        uint address = c.GP + 0xEDCu;
+        uint address = c.GP + CameraWidthOffset;
         uint nativeWidth = m.ReadU32(address);
         if (nativeWidth == 0u || nativeWidth > 0x00100000u)
             return;
@@ -2939,9 +3268,9 @@ public static class V82Compat
                 $"[V82WideTerrainFrustum] native={nativeWidth} " +
                 $"expanded={expandedWidth} " +
                 $"scale={scale:F6} aspect={GpuHle.WideAspect:F6} " +
-                $"projection={m.ReadU32(c.GP + 0xED8u)} " +
-                $"focal={m.ReadU16(c.GP + 0xDB4u)} " +
-                $"height={m.ReadU32(c.GP + 0xF20u)}");
+                $"projection={m.ReadU32(c.GP + CameraProjectionOffset)} " +
+                $"focal={m.ReadU16(c.GP + TerrainFocalOffset)} " +
+                $"height={m.ReadU32(c.GP + CameraHeightOffset)}");
         }
     }
 
@@ -4178,6 +4507,7 @@ public static class V82Compat
             !ConfigManager.View.HighResolution3D ||
             !ConfigManager.View.Widescreen ||
             !GpuHle.GameplayActive ||
+            GpuHle.WideAspect <= GpuHle.BaseAspect + 0.001f ||
             c.A1 <= c.A0)
             return;
 
@@ -4861,11 +5191,11 @@ public static class V82Compat
             return;
 
         double dx = unchecked((int)m.ReadU32(position)) -
-            unchecked((int)m.ReadU32(c.GP + 0xF3Cu));
+            unchecked((int)m.ReadU32(c.GP + CameraXOffset));
         double dy = unchecked((int)m.ReadU32(position + 4u)) -
-            unchecked((int)m.ReadU32(c.GP + 0xF40u));
+            unchecked((int)m.ReadU32(c.GP + CameraYOffset));
         double dz = unchecked((int)m.ReadU32(position + 8u)) -
-            unchecked((int)m.ReadU32(c.GP + 0xF44u));
+            unchecked((int)m.ReadU32(c.GP + CameraZOffset));
         double distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (!double.IsFinite(distance) || distance <= 0d)
             return;
@@ -4873,10 +5203,11 @@ public static class V82Compat
         // Lateral reach of the widened frustum minus the authored one, per
         // unit of distance, taken from the same half-width and projection the
         // terrain traversal uses.
-        double projection = unchecked((int)m.ReadU32(c.GP + 0xED8u));
+        double projection = unchecked((int)m.ReadU32(
+            c.GP + CameraProjectionOffset));
         double nativeWidth = _terrainFrustumNativeWidth != 0u
             ? _terrainFrustumNativeWidth
-            : unchecked((int)m.ReadU32(c.GP + 0xEDCu));
+            : unchecked((int)m.ReadU32(c.GP + CameraWidthOffset));
         if (projection < 1d || nativeWidth < 1d)
             return;
 
@@ -5079,20 +5410,22 @@ public static class V82Compat
     {
         if (Runtime.Mode != RunMode.Devkit ||
             !GpuHle.GameplayActive ||
-            !IsMaximumLevelOfDetail())
+            !UseExpandedPrimitiveBuffers)
             return;
 
         m = Dispatcher.UnwrapMemory(m);
         uint buffer = m.ReadU32(c.GP + 0x20u) & 1u;
-        uint cursor = m.ReadU32(c.GP + 0x610u);
+        uint cursor = m.ReadU32(c.GP + PacketCursorOffset);
         uint expandedBase = ExpandedPrimitiveBase(buffer);
-        uint nativeBase = 0x80074A68u + (buffer << 17);
-        _previousPrimitiveHighWaterWords = m.ReadU32(c.GP + 0xCE4u);
+        uint nativeBase = NativePrimitiveBase + buffer * NativePrimitiveSize;
+        _previousPrimitiveHighWaterWords = m.ReadU32(
+            c.GP + PrimitiveHighWaterOffset);
         _previousPrimitiveUsedWords =
             cursor >= expandedBase &&
             cursor <= expandedBase + ExpandedPrimitiveBufferSize
                 ? (cursor - expandedBase) >> 2
-                : cursor >= nativeBase && cursor <= nativeBase + 0x20000u
+                : cursor >= nativeBase &&
+                  cursor <= nativeBase + NativePrimitiveSize
                     ? (cursor - nativeBase) >> 2
                     : 0u;
         uint usedBytes = _previousPrimitiveUsedWords << 2;
@@ -5118,10 +5451,12 @@ public static class V82Compat
 
         m = Dispatcher.UnwrapMemory(m);
         uint buffer = m.ReadU32(c.GP + 0x20u) & 1u;
-        if (!GpuHle.GameplayActive || !IsMaximumLevelOfDetail())
+        if (!GpuHle.GameplayActive || !UseExpandedPrimitiveBuffers)
         {
-            uint nativeBase = 0x80074A68u + (buffer << 17);
-            GpuHle.BeginPacketArena(nativeBase, nativeBase + 0x20000u);
+            uint nativeBase = NativePrimitiveBase +
+                buffer * NativePrimitiveSize;
+            GpuHle.BeginPacketArena(
+                nativeBase, nativeBase + NativePrimitiveSize);
             return;
         }
 
@@ -5129,10 +5464,10 @@ public static class V82Compat
         GpuHle.BeginPacketArena(
             expandedBase,
             expandedBase + ExpandedPrimitiveBufferSize);
-        m.WriteU32(c.GP + 0x610u, expandedBase);
-        m.WriteU32(c.GP + 0xCDCu, ExpandedPrimitiveLimit(buffer));
+        m.WriteU32(c.GP + PacketCursorOffset, expandedBase);
+        m.WriteU32(c.GP + PrimitiveLimitOffset, ExpandedPrimitiveLimit(buffer));
         m.WriteU32(
-            c.GP + 0xCE4u,
+            c.GP + PrimitiveHighWaterOffset,
             Math.Max(_previousPrimitiveHighWaterWords, _previousPrimitiveUsedWords));
         _expandedPrimitiveBuffersActive = true;
 
@@ -5140,7 +5475,7 @@ public static class V82Compat
         {
             _expandedPrimitiveBuffersLogged = true;
             Console.Error.WriteLine(
-                $"[V82LOD] Maximum packet arenas active: " +
+                $"[V82LOD] Expanded packet arenas active: " +
                 $"0x{ExpandedPrimitiveBufferBase:X8}-0x{PcHeapBase:X8} " +
                 $"({ExpandedPrimitiveBufferSize >> 10} KiB each; " +
                 $"{ExpandedEdgePoolReserve >> 10} KiB edge pool, " +
@@ -7684,6 +8019,7 @@ public static class V82Compat
     // across the two heap allocations that precede the second read.
     public static void NormalizePostGameplayShellMode(IMemory m)
     {
+        _retiredGameplayRenderFence = true;
         if (!_postGameplayShellMenuPending)
             return;
 
@@ -7702,6 +8038,9 @@ public static class V82Compat
             $"[V82ShellReturn] source-mode={sourceMode} " +
             "target-mode=5 route=native-main-menu");
     }
+
+    public static void FenceRetiredGameplayRenderer() =>
+        _retiredGameplayRenderFence = true;
 
     public static void PreserveShellImageDecodePre(CpuContext c, IMemory m)
     {
@@ -7814,17 +8153,49 @@ public static class V82Compat
             return;
 
         uint callback = m.ReadU32(c.GP + 0xC38u);
-        if (callback != 0u)
+        if (callback == 0u)
         {
-            var snapshot = c.Snapshot();
-            Dispatcher.Call(c, m, callback);
-            c.Restore(snapshot);
+            // Demolition's shell can leave the draw-completion callback
+            // uninstalled while still building its profiles, contestant, and
+            // arena views into the active 4,096-entry ordering table.  Submit
+            // that table here; otherwise only the later one-entry footer table
+            // reaches the GPU and the entire 3D frontend appears black.
+            var noCallbackSnapshot = c.Snapshot();
+            uint displayEnvironment = m.ReadU32(c.GP + 0xC30u);
+            uint orderingTable = m.ReadU32(c.GP + 0xC34u);
+            if (displayEnvironment != 0u)
+            {
+                c.A0 = displayEnvironment;
+                LibGpu.PutDispEnv(c, m);
+            }
+            if (orderingTable != 0u)
+            {
+                c.A0 = orderingTable;
+                LibGpu.DrawOTag(c, m);
+            }
+            c.Restore(noCallbackSnapshot);
+            m.WriteU32(c.GP + 0x5ECu, 1u);
+            return;
         }
 
-        // The GPU operation itself is synchronous even when no callback is
-        // installed, so the original barrier is satisfied at this point.
+        var snapshot = c.Snapshot();
+        Dispatcher.Call(c, m, callback);
+        c.Restore(snapshot);
+
+        // The callback submits the completed front-end buffer and sets the
+        // completion flag synchronously.  Presenting here as well as at the
+        // shell's normal VSync exposes the opposite (still-cleared) page on
+        // every second host frame, producing a persistent black flicker.
+        int frames = 0;
+        while (m.ReadU32(c.GP + 0x5ECu) == 0u && frames < 16)
+        {
+            Runtime.PresentFrame();
+            frames++;
+        }
+
         if (m.ReadU32(c.GP + 0x5ECu) == 0u)
-            m.WriteU32(c.GP + 0x5ECu, 1u);
+            throw new InvalidOperationException(
+                $"Star Wars: Demolition DrawSync wait did not complete after {frames} VSync frames");
     }
 
     static void ApplyDemolitionRenderGte(CpuContext c, IMemory m)
@@ -7866,6 +8237,13 @@ public static class V82Compat
     // are ignored instead of wedging gameplay.
     public static void WalkDemolitionVisibilityTree(CpuContext c, IMemory m)
     {
+        // A quit-to-shell transition can retire the level image while the
+        // current retail frame is still unwinding its renderer.  Its tree and
+        // objects now alias freshly loaded SHELL data and must not be walked.
+        if (_retiredGameplayRenderFence ||
+            !Dispatcher.IsCurrentOverlayMemory(m))
+            return;
+
         uint root = c.A0;
         int minX = (int)c.A1;
         int maxX = (int)c.A2;
@@ -7931,9 +8309,12 @@ public static class V82Compat
     static int _demolitionVisibilityCycleLogs;
     static int _demolitionVisibilityDrawBudget;
     static readonly int DemolitionVisibilityDrawBudget = Math.Clamp(
-        ReadOptionalInt("RECOMPONE_DEMOLITION_DRAW_BUDGET") ?? 20,
+        ReadOptionalInt("RECOMPONE_DEMOLITION_DRAW_BUDGET") ?? 64,
         1,
-        64);
+        4096);
+    static int _demolitionVisibilityCandidates;
+    static int _demolitionVisibilityDrawn;
+    static int _demolitionVisibilitySkipped;
     static readonly bool TraceDemolitionVisibility =
         Environment.GetEnvironmentVariable(
             "RECOMPONE_TRACE_DEMOLITION_VISIBILITY") == "1";
@@ -7941,16 +8322,22 @@ public static class V82Compat
 
     public static void DrawDemolitionVisibilityLeaf(CpuContext c, IMemory m)
     {
+        if (_retiredGameplayRenderFence ||
+            !Dispatcher.IsCurrentOverlayMemory(m))
+            return;
+
         var caller = c.Snapshot();
         uint link = m.ReadU32(c.A0);
         var visited = new HashSet<uint>();
         const int linkLimit = 0x4000;
         int linkCount = 0;
         bool malformed = false;
-        uint[] savedGte = new uint[24];
 
-        while (link != 0u && linkCount++ < linkLimit &&
-               _demolitionVisibilityDrawBudget > 0)
+        // The host draw budget exists only to keep dense gameplay visibility
+        // trees interactive. Front-end selectors use this same retail leaf
+        // walker before gameplay starts; applying the zero-initialized budget
+        // there silently discarded every arena and contestant model.
+        while (link != 0u && linkCount++ < linkLimit)
         {
             uint physical = MemoryMap.ToPhysical(link);
             if (physical >= MemoryMap.RamWindow || !visited.Add(physical))
@@ -7963,27 +8350,32 @@ public static class V82Compat
             uint objectAddress = m.ReadU32(link + 8u);
             if (objectAddress != 0u)
             {
+                if (GpuHle.GameplayActive)
+                {
+                    _demolitionVisibilityCandidates++;
+                    if (_demolitionVisibilityDrawBudget <= 0)
+                    {
+                        _demolitionVisibilitySkipped++;
+                        link = next;
+                        continue;
+                    }
+                    _demolitionVisibilityDrawBudget--;
+                    _demolitionVisibilityDrawn++;
+                }
                 if (TraceDemolitionVisibility &&
                     _demolitionVisibilityTraceCount++ < 64)
                     Console.Error.WriteLine(
                         $"[DemolitionVisibility] link=0x{link:X8} " +
                         $"object=0x{objectAddress:X8} " +
                         $"callback=0x{m.ReadU32(objectAddress):X8}");
-                _demolitionVisibilityDrawBudget--;
                 c.Restore(caller);
                 c.A0 = objectAddress;
-                for (int register = 0; register < savedGte.Length; register++)
-                    savedGte[register] = RecompOne.Runtime.Gte.ReadControl(register);
-                try
-                {
-                    ApplyDemolitionRenderGte(c, m);
-                    Dispatcher.Call(c, m, 0x80030DECu);
-                }
-                finally
-                {
-                    for (int register = 0; register < savedGte.Length; register++)
-                        RecompOne.Runtime.Gte.WriteControl(register, savedGte[register]);
-                }
+                // Match the retail leaf walker: object callbacks share the
+                // live GTE state established by the world renderer and by the
+                // preceding callback. Re-seeding the camera matrix and zeroing
+                // translation before every object displaced large arena meshes
+                // and left much of the gameplay world hidden below the ground.
+                Dispatcher.Call(c, m, 0x80030DECu);
             }
             link = next;
         }
@@ -8006,10 +8398,23 @@ public static class V82Compat
         // refresh controllers here once per single-player viewport.
         Runtime.PresentFrame();
         GpuHle.DebugGameplayTick++;
+        if (GpuHle.DebugGameplayTick <= 4 ||
+            (GpuHle.DebugGameplayTick % 120) == 0)
+        {
+            Console.Error.WriteLine(
+                $"[DemolitionVisibilityFrame] tick={GpuHle.DebugGameplayTick - 1} " +
+                $"candidates={_demolitionVisibilityCandidates} " +
+                $"drawn={_demolitionVisibilityDrawn} " +
+                $"skipped={_demolitionVisibilitySkipped} " +
+                $"budget={DemolitionVisibilityDrawBudget}");
+        }
+        _demolitionVisibilityCandidates = 0;
+        _demolitionVisibilityDrawn = 0;
+        _demolitionVisibilitySkipped = 0;
         // Static recompilation currently spends far more time translating
-        // Demolition's dense prop geometry than the original PS1 did. Keep a
-        // representative set of nearby objects and vehicles each frame so
-        // logic, collision, weapons and camera updates run at gameplay speed.
+        // Demolition's dense prop geometry than the original PS1 did. The
+        // default covers the entire measured Tatooine spawn set (36 visible
+        // objects) while preserving an override for unusually dense scenes.
         _demolitionVisibilityDrawBudget = DemolitionVisibilityDrawBudget;
         if ((GpuHle.DebugGameplayTick % 120) == 0)
             Console.Error.WriteLine(
@@ -8021,6 +8426,8 @@ public static class V82Compat
             Console.Error.WriteLine(
                 "[DemolitionCompat] entered accelerated gameplay renderer");
         }
+        if (GpuHle.DebugGameplayTick == 300)
+            InputManager.SignalScriptStage("gameplay_settled");
         return true;
     }
 
@@ -8181,20 +8588,37 @@ public static class V82Compat
         uint nonblocking = c.A0;
         uint result1 = c.A1;
         uint result2 = c.A2;
+        uint initialState = m.ReadU32(state);
+        uint initialAuxiliary = m.ReadU32(state + 4u);
+        uint initialComplete = m.ReadU32(state + 8u);
         if (m.ReadU32(state) == 0u && m.ReadU32(state + 8u) == 0u)
         {
             c.V0 = 0xFFFFFFFFu;
+            TraceDemolitionCardWait(
+                nonblocking, initialState, initialAuxiliary,
+                initialComplete, 0, c.V0, m);
             return;
         }
 
+        int servicePasses = 0;
         if (m.ReadU32(state + 8u) == 0u)
+        {
             V8Compat.DispatchLinked(c, m, service);
+            servicePasses++;
+        }
 
         uint complete = m.ReadU32(state + 8u);
         if (nonblocking == 0u && complete == 0u)
         {
-            for (int i = 0; i < 8 && m.ReadU32(state + 8u) == 0u; i++)
+            // A directory scan touches every memory-card directory frame and
+            // therefore needs substantially more service turns than the
+            // shorter V8/V8:2 operations. Match the retail blocking contract:
+            // do not report success until the completion callback has fired.
+            for (int i = 0; i < 4096 && m.ReadU32(state + 8u) == 0u; i++)
+            {
                 V8Compat.DispatchLinked(c, m, service);
+                servicePasses++;
+            }
             complete = m.ReadU32(state + 8u);
         }
 
@@ -8204,11 +8628,37 @@ public static class V82Compat
             if (result1 != 0u) m.WriteU32(result1, m.ReadU32(state - 0x10u));
             m.WriteU32(state + 8u, 0u);
             c.V0 = 1u;
+            TraceDemolitionCardWait(
+                nonblocking, initialState, initialAuxiliary,
+                initialComplete, servicePasses, c.V0, m);
             return;
         }
 
         if (result2 != 0u) m.WriteU32(result2, m.ReadU32(state + 4u));
         if (result1 != 0u) m.WriteU32(result1, m.ReadU32(state));
         c.V0 = nonblocking == 0u ? 1u : 0u;
+        TraceDemolitionCardWait(
+            nonblocking, initialState, initialAuxiliary,
+            initialComplete, servicePasses, c.V0, m);
+    }
+
+    static void TraceDemolitionCardWait(
+        uint nonblocking,
+        uint initialState,
+        uint initialAuxiliary,
+        uint initialComplete,
+        int servicePasses,
+        uint result,
+        IMemory m)
+    {
+        if (!TraceDemolitionCard || _demolitionCardTraceCount++ >= 128)
+            return;
+        const uint state = 0x80114810u;
+        Console.Error.WriteLine(
+            $"[DemolitionCard] mode={(nonblocking == 0u ? "blocking" : "poll")} " +
+            $"before={initialState:X8}/{initialAuxiliary:X8}/{initialComplete:X8} " +
+            $"passes={servicePasses} after={m.ReadU32(state):X8}/" +
+            $"{m.ReadU32(state + 4u):X8}/{m.ReadU32(state + 8u):X8} " +
+            $"result=0x{result:X8}");
     }
 }

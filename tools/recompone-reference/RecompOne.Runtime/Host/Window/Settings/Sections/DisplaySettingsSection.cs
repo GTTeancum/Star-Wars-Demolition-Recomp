@@ -298,13 +298,6 @@ internal sealed class DisplaySettingsSection : ISettingsSection
             SaveCustom();
         }
 
-        bool ps1Dithering = ConfigManager.View.Ps1Dithering;
-        if (ImGui.Checkbox("PS1 color dithering (fidelity)", ref ps1Dithering))
-        {
-            ConfigManager.View.Ps1Dithering = ps1Dithering;
-            SaveCustom();
-        }
-        ImGui.TextDisabled("Off by default; changes take effect immediately.");
     }
 
     static void SaveCustom()

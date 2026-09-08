@@ -227,6 +227,10 @@ public static class LibCd
             // that did not exist in the 16:9 image. The render thread owns
             // those regions and must black them without erasing the shell's
             // native VRAM assets or framebuffer pages.
+            bool returningFromGameplay =
+                Hle.GpuHle.GameplayActive || Hle.GpuHle.DebugGameplayTick > 0;
+            if (returningFromGameplay)
+                V82Compat.FenceRetiredGameplayRenderer();
             if (Hle.GpuHle.GameplayActive && Runtime.Mem != null)
                 V82Compat.NormalizePostGameplayShellMode(Runtime.Mem);
             Hle.GpuHle.GameplayActive = false;

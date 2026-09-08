@@ -112,7 +112,7 @@ public static class Runtime
         Mem = m;
     }
 
-    public static void PresentFrame()
+    public static void PresentFrame(bool renderVideo = true)
     {
         int traceFrame = _presentTraceCount++;
         if (TraceVSync && traceFrame < 10) Console.Error.WriteLine($"[VSync] present {traceFrame}: window");
@@ -121,7 +121,7 @@ public static class Runtime
             _lastDisplayEnabled = Gpu.DisplayEnabled;
             Console.WriteLine($"[GPU] display={Gpu.DisplayEnabled} area={Gpu.DisplayX},{Gpu.DisplayY} {Gpu.DisplayWidth}x{Gpu.DisplayHeight} hle={Hle.GpuHle.Active}");
         }
-        HostWindow.Present(Gpu);
+        HostWindow.Present(Gpu, renderVideo);
         Gpu.EndProjectionFrame(Hle.GpuHle.GameplayActive);
         // GTE-to-GPU depth correlation is needed only within the frame whose
         // geometry was just submitted. Clearing here prevents stale screen

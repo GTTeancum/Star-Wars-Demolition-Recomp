@@ -56,6 +56,20 @@ public static class Dispatcher
     public static IMemory UnwrapMemory(IMemory memory) =>
         memory is RelocatedMemory relocated ? relocated.Inner : memory;
 
+    public static bool IsCurrentOverlayMemory(IMemory memory)
+    {
+        if (memory is not RelocatedMemory relocated)
+            return true;
+        return _relocatedImages.Any(image =>
+        {
+            uint size = image.Overlay.Size != 0u
+                ? image.Overlay.Size
+                : image.Overlay.ImageSize;
+            return relocated.Matches(
+                image.Overlay.Base, size, image.Delta);
+        });
+    }
+
     public static uint NormalizeLinkedAddress(IMemory memory, uint address)
     {
         if (memory is not RelocatedMemory relocated) return address;

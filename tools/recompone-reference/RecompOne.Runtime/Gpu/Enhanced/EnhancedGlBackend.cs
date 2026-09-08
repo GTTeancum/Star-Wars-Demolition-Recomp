@@ -247,7 +247,6 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     int _classifiedClipY1 = int.MinValue;
     bool _viewHighResolutionTextures;
     bool _viewTextureSmoothing;
-    bool _viewPs1Dithering;
     bool _viewEnhancedDepthBuffer;
     bool _viewHighResolution3D;
     bool _viewPerspectiveCorrectTextures;
@@ -878,7 +877,6 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         _viewHighResolutionTextures =
             ConfigManager.View.HighResolutionTextures;
         _viewTextureSmoothing = ConfigManager.View.TextureSmoothing;
-        _viewPs1Dithering = ConfigManager.View.Ps1Dithering;
         _viewEnhancedDepthBuffer = ConfigManager.View.EnhancedDepthBuffer;
         _viewHighResolution3D = ConfigManager.View.HighResolution3D;
         _viewPerspectiveCorrectTextures =
@@ -1610,15 +1608,9 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         _kTextureSmoothing = _viewTextureSmoothing ? 1 : 0;
     }
 
-    bool DitherOf(in PrimFlags f) =>
-        _viewPs1Dithering &&
-        _env.Dither &&
-        (f.Gouraud || (f.Textured && !f.RawTexture));
-
     GlVertex V(
         in HleVertex v,
         in PrimFlags f,
-        bool dither,
         bool perspectiveCorrect,
         bool uiTexture = false,
         float rasterDepth = 0f,
@@ -1626,7 +1618,6 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     {
         uint color = (f.Textured && f.RawTexture) ? 0x808080u : (uint)(v.R | (v.G << 8) | (v.B << 16));
         int tpage = f.Textured ? (f.TPage & 0x1FF) : 0x8000;
-        if (dither) tpage |= 0x400;
         // "Raw texture" only disables vertex-colour modulation on the PS1;
         // it does not identify a UI primitive. Terrain and several vehicle
         // materials use raw-texture packets, so excluding them left the most
@@ -3231,7 +3222,6 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
                 depthTest,
                 depthWrite,
                 sourceDepthCompareWrite);
-        bool dith = DitherOf(f);
         bool hasDepth = f.Textured && a.HasGteZ && b.HasGteZ && c.HasGteZ;
         bool hasProjectiveW =
             f.Textured &&
@@ -3501,13 +3491,13 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             ExpandBackdropEdge(ref drawB, backdropTarget!);
             ExpandBackdropEdge(ref drawC, backdropTarget!);
         }
-        var va = V(drawA, f, dith, perspectiveCorrect, screenSpacePrimitive,
+        var va = V(drawA, f, perspectiveCorrect, screenSpacePrimitive,
             DepthOf(a, f.OtIndex, coherentRasterDepth), deferredTarget);
         va.BaryX = 1f;
-        var vb = V(drawB, f, dith, perspectiveCorrect, screenSpacePrimitive,
+        var vb = V(drawB, f, perspectiveCorrect, screenSpacePrimitive,
             DepthOf(b, f.OtIndex, coherentRasterDepth), deferredTarget);
         vb.BaryY = 1f;
-        var vc = V(drawC, f, dith, perspectiveCorrect, screenSpacePrimitive,
+        var vc = V(drawC, f, perspectiveCorrect, screenSpacePrimitive,
             DepthOf(c, f.OtIndex, coherentRasterDepth), deferredTarget);
         vc.BaryZ = 1f;
         // The panorama is two big textured quads at a constant far depth,
@@ -4258,7 +4248,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         GlVertex Corner(int x, int y)
         {
             var source = new HleVertex { X = left + x, Y = top + y };
-            var vertex = V(source, panelFlags, false, false, true);
+            var vertex = V(source, panelFlags, false, true);
             vertex.Texpage |= 0x01000000;
             vertex.U = x; vertex.V = y;
             vertex.UvMaxX = width; vertex.UvMaxY = height;
@@ -4509,10 +4499,10 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             if (_traceHudPackets.Add(packet))
                 Console.Error.WriteLine($"[V82HudPacket] {packet}");
         }
-        var va = V(a, f, false, false, true); va.Texpage |= uiFlags;
-        var vb = V(b, f, false, false, true); vb.Texpage |= uiFlags;
-        var vc = V(c, f, false, false, true); vc.Texpage |= uiFlags;
-        var vd = V(d, f, false, false, true); vd.Texpage |= uiFlags;
+        var va = V(a, f, false, true); va.Texpage |= uiFlags;
+        var vb = V(b, f, false, true); vb.Texpage |= uiFlags;
+        var vc = V(c, f, false, true); vc.Texpage |= uiFlags;
+        var vd = V(d, f, false, true); vd.Texpage |= uiFlags;
         // Large authored menu/loading rectangles stay in the native 4:3
         // composition, but receive the same bounded palette-resolved
         // reconstruction as world textures. Small glyphs and compact icons
@@ -4623,15 +4613,14 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     public void DrawLine(in HleVertex a, in HleVertex b, in PrimFlags f)
     {
         Begin(f, 6);
-        bool dith = _viewPs1Dithering && _env.Dither;
         float x1 = a.X, y1 = a.Y;
         float x2 = b.X, y2 = b.Y;
         float dx = x2 - x1, dy = y2 - y1;
 
         if (dx == 0 && dy == 0)
         {
-            LineVert(x1, y1, a, f, dith); LineVert(x1 + 1, y1, a, f, dith); LineVert(x1 + 1, y1 + 1, a, f, dith);
-            LineVert(x1 + 1, y1 + 1, a, f, dith); LineVert(x1, y1 + 1, a, f, dith); LineVert(x1, y1, a, f, dith);
+            LineVert(x1, y1, a, f); LineVert(x1 + 1, y1, a, f); LineVert(x1 + 1, y1 + 1, a, f);
+            LineVert(x1 + 1, y1 + 1, a, f); LineVert(x1, y1 + 1, a, f); LineVert(x1, y1, a, f);
             return;
         }
 
@@ -4639,15 +4628,15 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         if (Math.Abs(dx) > Math.Abs(dy)) { xo = 0; yo = 1; if (dx > 0) x2++; else x1++; }
         else { xo = 1; yo = 0; if (dy > 0) y2++; else y1++; }
 
-        LineVert(x1, y1, a, f, dith); LineVert(x2, y2, b, f, dith); LineVert(x2 + xo, y2 + yo, b, f, dith);
-        LineVert(x2 + xo, y2 + yo, b, f, dith); LineVert(x1 + xo, y1 + yo, a, f, dith); LineVert(x1, y1, a, f, dith);
+        LineVert(x1, y1, a, f); LineVert(x2, y2, b, f); LineVert(x2 + xo, y2 + yo, b, f);
+        LineVert(x2 + xo, y2 + yo, b, f); LineVert(x1 + xo, y1 + yo, a, f); LineVert(x1, y1, a, f);
     }
 
-    void LineVert(float x, float y, in HleVertex src, in PrimFlags f, bool dither)
+    void LineVert(float x, float y, in HleVertex src, in PrimFlags f)
     {
         var v = src; v.X = x; v.Y = y;
         _verts[_count++] = V(
-            v, f, dither, false,
+            v, f, false,
             f.Material == HleMaterialKind.Ui);
     }
 
@@ -5764,38 +5753,46 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         int presentScale = GpuHle.NativeResolution ? 1 : GlVram.Scale;
         int fbW = w1x * presentScale;
         int fbH = h1x * presentScale;
+        bool holdCompletedDemolitionFrontendFrame =
+            IsDemolition && !GpuHle.GameplayActive && !rgb24 &&
+            dispY > 0 && w == 320 && h == 240 &&
+            _presentW == fbW && _presentH == fbH &&
+            _presentNearest == GpuHle.NativeResolution;
         EnsurePresentSize(fbW, fbH, GpuHle.NativeResolution);
 
-        _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _presentFbo);
-        _gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
-        _gl.Disable(EnableCap.DepthTest);
-        _gl.DepthMask(true);
-        _gl.Disable(EnableCap.Blend);
-        _gl.Disable(EnableCap.ScissorTest);
-        _gl.Disable(EnableCap.CullFace);
+        if (!holdCompletedDemolitionFrontendFrame)
+        {
+            _gl.BindFramebuffer(FramebufferTarget.Framebuffer, _presentFbo);
+            _gl.Viewport(0, 0, (uint)fbW, (uint)fbH);
+            _gl.Disable(EnableCap.DepthTest);
+            _gl.DepthMask(true);
+            _gl.Disable(EnableCap.Blend);
+            _gl.Disable(EnableCap.ScissorTest);
+            _gl.Disable(EnableCap.CullFace);
 
-        _gl.UseProgram(rgb24 ? _progPresent24 : _progPresent);
-        _gl.BindVertexArray(_presentVao);
-        _gl.ActiveTexture(TextureUnit.Texture0);
-        _gl.BindTexture(TextureTarget.Texture2D, src?.Tex ?? _vram.Texture);
-        if (rgb24)
-        {
-            _gl.Uniform2(_uPresent24Origin, (float)dispX, dispY);
-            _gl.Uniform2(_uPresent24Size, (float)w, h);
+            _gl.UseProgram(rgb24 ? _progPresent24 : _progPresent);
+            _gl.BindVertexArray(_presentVao);
+            _gl.ActiveTexture(TextureUnit.Texture0);
+            _gl.BindTexture(TextureTarget.Texture2D, src?.Tex ?? _vram.Texture);
+            if (rgb24)
+            {
+                _gl.Uniform2(_uPresent24Origin, (float)dispX, dispY);
+                _gl.Uniform2(_uPresent24Size, (float)w, h);
+            }
+            else if (src != null)
+            {
+                _gl.Uniform2(_uPresentOrigin, (float)(dispX - src.X), dispY - src.Y);
+                _gl.Uniform2(_uPresentSize, (float)w1x, h1x);
+                _gl.Uniform2(_uPresentTexSize, (float)src.Wide1x, src.H);
+            }
+            else
+            {
+                _gl.Uniform2(_uPresentOrigin, (float)dispX, dispY);
+                _gl.Uniform2(_uPresentSize, (float)w, h);
+                _gl.Uniform2(_uPresentTexSize, (float)VramShadow.Width, VramShadow.Height);
+            }
+            _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
         }
-        else if (src != null)
-        {
-            _gl.Uniform2(_uPresentOrigin, (float)(dispX - src.X), dispY - src.Y);
-            _gl.Uniform2(_uPresentSize, (float)w1x, h1x);
-            _gl.Uniform2(_uPresentTexSize, (float)src.Wide1x, src.H);
-        }
-        else
-        {
-            _gl.Uniform2(_uPresentOrigin, (float)dispX, dispY);
-            _gl.Uniform2(_uPresentSize, (float)w, h);
-            _gl.Uniform2(_uPresentTexSize, (float)VramShadow.Width, VramShadow.Height);
-        }
-        _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
 
         _gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         foreach (var rt in _rts)

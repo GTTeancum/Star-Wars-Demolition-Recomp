@@ -60,5 +60,5 @@ public struct HleRect
     public byte R, G, B;
     public bool FlipX, FlipY;
 }
-public struct HleDrawEnv { public int ClipX0, ClipY0, ClipX1, ClipY1; public int TwMaskX, TwMaskY, TwOffX, TwOffY; public bool SetMask, CheckMask, Dither; }
+public struct HleDrawEnv { public int ClipX0, ClipY0, ClipX1, ClipY1; public int TwMaskX, TwMaskY, TwOffX, TwOffY; public bool SetMask, CheckMask; }
 public struct HleDispEnv { public int X, Y, W, H; public bool Rgb24, Interlace; }

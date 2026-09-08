@@ -240,13 +240,14 @@ internal static class HostWindow
         }
     }
 
-    public static void Present(Gpu? gpu)
+    public static void Present(Gpu? gpu, bool renderVideo = true)
     {
         _gpu = gpu;
         if (_headless || _window == null)
         {
             InputManager.Poll();
-            if (gpu is { DisplayEnabled: true } &&
+            if (renderVideo &&
+                gpu is { DisplayEnabled: true } &&
                 gpu.DisplayWidth > 0 && gpu.DisplayHeight > 0)
             {
                 int pixels = checked(gpu.DisplayWidth * gpu.DisplayHeight);
@@ -284,7 +285,8 @@ internal static class HostWindow
             SetFullscreen(ConfigManager.View.Fullscreen);
             ConfigManager.SaveView(PanelManager.Panels);
         }
-        _window.DoRender();
+        if (renderVideo)
+            _window.DoRender();
         if (_maximumWindowPresents > 0 &&
             ++_windowPresents >= _maximumWindowPresents)
         {
@@ -519,8 +521,6 @@ internal static class HostWindow
         Hle.GpuHle.NativeResolution =
             !ConfigManager.View.HighResolution3D;
         ApplyGraphicsView();
-        Console.WriteLine(
-            $"[Host] PS1 color dithering={(ConfigManager.View.Ps1Dithering ? "On (fidelity)" : "Off (enhanced default)")}");
         Console.WriteLine(
             $"[Host] PS1 texture smoothing={(ConfigManager.View.TextureSmoothing ? "On (enhanced default)" : "Off (fidelity)")}");
         Console.WriteLine(

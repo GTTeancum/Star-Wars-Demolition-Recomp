@@ -194,13 +194,6 @@
       "linearSweep": true
     },
     {
-      "name": "IMGUI.NET",
-      "base": "0x80100000",
-      "file": "ImGui.NET.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
       "name": "LEVELS_CLOUDCTY",
       "base": "0x80100000",
       "file": "LEVELS\\CLOUDCTY.DLL",
@@ -263,104 +256,6 @@
       "name": "LEVELS_YAVIN4",
       "base": "0x80100000",
       "file": "LEVELS\\YAVIN4.DLL",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "MICROSOFT.DOTNET.PLATFORMABSTRACTIONS",
-      "base": "0x80100000",
-      "file": "Microsoft.DotNet.PlatformAbstractions.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "MICROSOFT.EXTENSIONS.DEPENDENCYMODEL",
-      "base": "0x80100000",
-      "file": "Microsoft.Extensions.DependencyModel.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "NVORBIS",
-      "base": "0x80100000",
-      "file": "NVorbis.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "OGGVORBISENCODER",
-      "base": "0x80100000",
-      "file": "OggVorbisEncoder.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RECOMPONE.RUNTIME",
-      "base": "0x80100000",
-      "file": "RecompOne.Runtime.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_ARM64_NATIVE_CIMGUI",
-      "base": "0x80100000",
-      "file": "runtimes\\win-arm64\\native\\cimgui.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_ARM64_NATIVE_GLFW3",
-      "base": "0x80100000",
-      "file": "runtimes\\win-arm64\\native\\glfw3.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_ARM64_NATIVE_SDL2",
-      "base": "0x80100000",
-      "file": "runtimes\\win-arm64\\native\\SDL2.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X64_NATIVE_CIMGUI",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x64\\native\\cimgui.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X64_NATIVE_GLFW3",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x64\\native\\glfw3.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X64_NATIVE_SDL2",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x64\\native\\SDL2.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X86_NATIVE_CIMGUI",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x86\\native\\cimgui.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X86_NATIVE_GLFW3",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x86\\native\\glfw3.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "RUNTIMES_WIN_X86_NATIVE_SDL2",
-      "base": "0x80100000",
-      "file": "runtimes\\win-x86\\native\\SDL2.dll",
       "v8Relocate": true,
       "linearSweep": true
     },
@@ -459,116 +354,101 @@
           "address": "0x80100070"
         }
       ]
-    },
-    {
-      "name": "SILK.NET.CORE",
-      "base": "0x80100000",
-      "file": "Silk.NET.Core.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.GLFW",
-      "base": "0x80100000",
-      "file": "Silk.NET.GLFW.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.INPUT.COMMON",
-      "base": "0x80100000",
-      "file": "Silk.NET.Input.Common.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.INPUT.EXTENSIONS",
-      "base": "0x80100000",
-      "file": "Silk.NET.Input.Extensions.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.INPUT.GLFW",
-      "base": "0x80100000",
-      "file": "Silk.NET.Input.Glfw.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.MATHS",
-      "base": "0x80100000",
-      "file": "Silk.NET.Maths.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.OPENAL",
-      "base": "0x80100000",
-      "file": "Silk.NET.OpenAL.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.OPENGL",
-      "base": "0x80100000",
-      "file": "Silk.NET.OpenGL.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.OPENGL.EXTENSIONS.IMGUI",
-      "base": "0x80100000",
-      "file": "Silk.NET.OpenGL.Extensions.ImGui.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.SDL",
-      "base": "0x80100000",
-      "file": "Silk.NET.SDL.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.VULKAN",
-      "base": "0x80100000",
-      "file": "Silk.NET.Vulkan.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.VULKAN.EXTENSIONS.KHR",
-      "base": "0x80100000",
-      "file": "Silk.NET.Vulkan.Extensions.KHR.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.WINDOWING.COMMON",
-      "base": "0x80100000",
-      "file": "Silk.NET.Windowing.Common.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "SILK.NET.WINDOWING.GLFW",
-      "base": "0x80100000",
-      "file": "Silk.NET.Windowing.Glfw.dll",
-      "v8Relocate": true,
-      "linearSweep": true
-    },
-    {
-      "name": "STARWARSDEMOLITIONPC",
-      "base": "0x80100000",
-      "file": "StarWarsDemolitionPC.dll",
-      "v8Relocate": true,
-      "linearSweep": true
     }
   ],
   "stubs": [],
   "ignored": [],
   "patches": [
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "801062CC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionProfileState",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010A7CC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionContestantState",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "801099CC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionOpponentsState",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "80105710",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionFrontendTransition",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010D298",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionFrontendController",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010D298",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionFrontendControllerExit",
+      "mode": "post"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010D954",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionFrontendLoopExit",
+      "mode": "post"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010DEF8",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionShellFrontendExit",
+      "mode": "post"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010BE50",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionArenaState",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8001AE2C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceNativeOptionsText",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8001B138",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceNativeOptionsText",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8001B0D4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceNativeOptionsText",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8001A344",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionTextObject",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8002EDA8",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionModelCreate",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8002FAFC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TraceDemolitionSelectorAcceptTarget",
+      "mode": "post"
+    },
     {
       "overlay": "main",
       "address": "80023C5C",
@@ -693,6 +573,42 @@
       "address": "80034DEC",
       "target": "RecompOne.Runtime.Sdk.V82Compat.DrawDemolitionVisibilityLeaf",
       "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8001C954",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.ExpandTerrainRowSpan",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "800155C0",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.PrepareExpandedPrimitiveBuffer",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "800155C0",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.ActivateExpandedPrimitiveBuffer",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "800314F4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.ExpandObjectFrustum",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "800314F4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.RestoreObjectFrustum",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "80031730",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.WidenObjectVisibilityTest",
+      "mode": "pre"
     },
     {
       "overlay": "main",
@@ -879,6 +795,30 @@
       "address": "8010FC80",
       "target": "RecompOne.Runtime.Sdk.LibCdStream.StGetNext",
       "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010F32C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellDecodeCallerPre",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010F32C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellDecodeCallerPost",
+      "mode": "post"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010EF04",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellImageDecodePre",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010EF04",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellImageDecodePost",
+      "mode": "post"
     },
     {
       "overlay": "SHELL_SHELL",

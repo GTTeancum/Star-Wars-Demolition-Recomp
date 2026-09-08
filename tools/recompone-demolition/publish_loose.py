@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -30,25 +32,57 @@ def main() -> int:
             "generated project is missing; run prepare_reference.py and RecompOne first"
         )
 
-    subprocess.run(
-        [
-            "dotnet",
-            "publish",
-            str(PROJECT),
-            "-c",
-            "Release",
-            "--no-restore",
-            "-o",
-            str(loose_root),
-            "--consoleLoggerParameters:ErrorsOnly",
-        ],
-        cwd=REPO,
-        check=True,
-    )
+    with tempfile.TemporaryDirectory(prefix="demolition-single-file-") as temp:
+        staging = Path(temp)
+        subprocess.run(
+            [
+                "dotnet",
+                "publish",
+                str(PROJECT),
+                "-c",
+                "Release",
+                "-r",
+                "win-x64",
+                "--self-contained",
+                "true",
+                "-p:PublishSingleFile=true",
+                "-p:IncludeNativeLibrariesForSelfExtract=true",
+                "-p:IncludeAllContentForSelfExtract=true",
+                "-p:EnableCompressionInSingleFile=true",
+                "-p:DebugSymbols=false",
+                "-p:DebugType=None",
+                "-o",
+                str(staging),
+                "--consoleLoggerParameters:ErrorsOnly",
+            ],
+            cwd=REPO,
+            check=True,
+        )
+
+        staged_executable = staging / "StarWarsDemolitionPC.exe"
+        unexpected = [path.name for path in staging.iterdir()
+                      if path.is_file() and path != staged_executable]
+        if not staged_executable.is_file() or unexpected:
+            raise RuntimeError(
+                "single-file publish contract failed; "
+                f"exe={staged_executable.is_file()} unexpected={unexpected}"
+            )
+
+        # A successful staged publish is the commit point. Remove only legacy
+        # host products from earlier framework-dependent publishes; prepared
+        # retail media and user configuration are never part of this cleanup.
+        for legacy in loose_root.glob("*.dll"):
+            legacy.unlink()
+        for suffix in (".deps.json", ".runtimeconfig.json", ".pdb"):
+            for legacy in loose_root.glob(f"StarWarsDemolitionPC*{suffix}"):
+                legacy.unlink()
+        (loose_root / "RecompOne.Runtime.pdb").unlink(missing_ok=True)
+        shutil.copy2(staged_executable, loose_root / staged_executable.name)
+
     executable = loose_root / "StarWarsDemolitionPC.exe"
     if not executable.is_file():
         raise RuntimeError(f"publish completed without producing {executable}")
-    print(f"Published loose-file build: {executable}")
+    print(f"Published self-contained loose-file build: {executable}")
     print("Run it with no arguments; it reads SYSTEM.CNF and all media beside itself.")
     return 0
 

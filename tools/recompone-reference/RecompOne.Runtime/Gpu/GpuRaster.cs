@@ -112,14 +112,6 @@ public sealed partial class Gpu
             $"({c.R},{c.G},{c.B})");
     }
 
-    static readonly int[,] Dither =
-    {
-        { -4,  0, -3,  1 },
-        {  2, -2,  3, -1 },
-        { -3,  1, -4,  0 },
-        {  3, -1,  2, -2 },
-    };
-
     void DrawPolygon()
     {
         uint cmd = _fifo[0];
@@ -765,8 +757,6 @@ public sealed partial class Gpu
         int bias0 = IsTopLeft(b, c) ? 0 : -1;
         int bias1 = IsTopLeft(c, a) ? 0 : -1;
         int bias2 = IsTopLeft(a, b) ? 0 : -1;
-        bool ditherTex = DitherEnabled && !raw;
-
         int sx0 = b.Y - c.Y, sy0 = c.X - b.X;
         int sx1 = c.Y - a.Y, sy1 = a.X - c.X;
         int sx2 = a.Y - b.Y, sy2 = b.X - a.X;
@@ -814,7 +804,7 @@ public sealed partial class Gpu
                     bool stp = (texel & 0x8000) != 0;
                     int tr = (texel & 0x1F) << 3, tg = ((texel >> 5) & 0x1F) << 3, tb = ((texel >> 10) & 0x1F) << 3;
                     if (!raw) { tr = tr * r >> 7; tg = tg * g >> 7; tb = tb * bl >> 7; }
-                    Plot(x, y, tr, tg, tb, semi && stp, ditherTex, stp);
+                    Plot(x, y, tr, tg, tb, semi && stp, stp);
                     if (tracePixel)
                         TraceRasterPixel(
                             x, y, a, b, c, tex, semi, raw, clut,
@@ -830,7 +820,7 @@ public sealed partial class Gpu
                     ushort before = tracePixel
                         ? Vram[y * VramWidth + x]
                         : (ushort)0;
-                    Plot(x, y, r, g, bl, semi, DitherEnabled && gouraud);
+                    Plot(x, y, r, g, bl, semi);
                     if (tracePixel)
                         TraceRasterPixel(
                             x, y, a, b, c, tex, semi, raw, clut,
@@ -903,9 +893,9 @@ public sealed partial class Gpu
                     bool stp = (texel & 0x8000) != 0;
                     int tr = (texel & 0x1F) << 3, tg = ((texel >> 5) & 0x1F) << 3, tb = ((texel >> 10) & 0x1F) << 3;
                     if (!raw) { tr = tr * cr >> 7; tg = tg * cg >> 7; tb = tb * cb >> 7; }
-                    Plot(px, py, tr, tg, tb, semi && stp, false, stp);
+                    Plot(px, py, tr, tg, tb, semi && stp, stp);
                 }
-                else Plot(px, py, cr, cg, cb, semi, false);
+                else Plot(px, py, cr, cg, cb, semi);
             }
     }
 
@@ -956,7 +946,7 @@ public sealed partial class Gpu
         if (HleOn) { HleLine(x0, y0, r0, g0, b0, x1, y1, r1, g1, b1, semi, gouraud); return; }
         int dx = Math.Abs(x1 - x0), dy = Math.Abs(y1 - y0);
         int steps = Math.Max(dx, dy);
-        if (steps == 0) { Plot(x0, y0, r0, g0, b0, semi, DitherEnabled); return; }
+        if (steps == 0) { Plot(x0, y0, r0, g0, b0, semi); return; }
         for (int i = 0; i <= steps; i++)
         {
             double t = (double)i / steps;
@@ -966,7 +956,7 @@ public sealed partial class Gpu
             int g = (int)(g0 + (g1 - g0) * t);
             int b = (int)(b0 + (b1 - b0) * t);
             if (x < _drawAreaLeft || x > _drawAreaRight || y < _drawAreaTop || y > _drawAreaBottom) continue;
-            Plot(x, y, r, g, b, semi, DitherEnabled);
+            Plot(x, y, r, g, b, semi);
         }
     }
 
@@ -996,7 +986,7 @@ public sealed partial class Gpu
         return Vram[(clutY & (VramHeight - 1)) * VramWidth + ((clutX + index) & (VramWidth - 1))];
     }
 
-    void Plot(int x, int y, int r, int g, int b, bool semi, bool dither, bool maskBit = false)
+    void Plot(int x, int y, int r, int g, int b, bool semi, bool maskBit = false)
     {
         if (x < _drawAreaLeft || x > _drawAreaRight || y < _drawAreaTop || y > _drawAreaBottom) return;
         if (x < 0 || x >= VramWidth || y < 0 || y >= VramHeight) return;
@@ -1004,12 +994,6 @@ public sealed partial class Gpu
         int idx = y * VramWidth + x;
         ushort bg = Vram[idx];
         if (_checkMask && (bg & 0x8000) != 0) return;
-
-        if (dither)
-        {
-            int d = Dither[y & 3, x & 3];
-            r = Clamp255(r + d); g = Clamp255(g + d); b = Clamp255(b + d);
-        }
 
         int fr = Math.Min(31, r >> 3), fg = Math.Min(31, g >> 3), fb = Math.Min(31, b >> 3);
 

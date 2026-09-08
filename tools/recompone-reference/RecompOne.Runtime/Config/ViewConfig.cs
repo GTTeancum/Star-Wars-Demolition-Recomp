@@ -79,12 +79,6 @@ public class ViewConfig
         set => SetInt("InternalResolutionScale", Math.Clamp(value, 1, 4));
     }
 
-    public bool Ps1Dithering
-    {
-        get => GetBool("Ps1Dithering", false);
-        set => SetBool("Ps1Dithering", value);
-    }
-
     public bool TextureSmoothing
     {
         get => GetBool("TextureSmoothing", true);
@@ -233,7 +227,6 @@ public class ViewConfig
         bool Matches(bool original) =>
             HighResolution3D == !original &&
             InternalResolutionScale == (original ? 1 : 3) &&
-            Ps1Dithering == original &&
             TextureSmoothing == !original &&
             HighResolutionTextures == !original &&
             PerspectiveCorrectTextures == !original &&
@@ -268,6 +261,9 @@ public class ViewConfig
 
     public void ReconcileNamedGraphicsPreset()
     {
+        // Dithering is no longer a renderer option. Drop the legacy key when
+        // loading older interface files so the next save cannot resurrect it.
+        Values.Remove("Ps1Dithering");
         string preset = GraphicsPreset;
         if (preset.Equals("Original", StringComparison.OrdinalIgnoreCase))
         {
@@ -296,14 +292,9 @@ public class ViewConfig
         GraphicsPreset = original ? "Original" : "Enhanced";
         HighResolution3D = !original;
         InternalResolutionScale = original ? 1 : 3;
-        Ps1Dithering = original;
         TextureSmoothing = !original;
         HighResolutionTextures = !original;
-        // Demolition's textured terrain packets carry PS1-era affine UVs.
-        // Their recovered projective W values are not stable across the
-        // separately translated terrain calls, which makes the enhanced
-        // shader select distant mip levels for the near road surface.
-        PerspectiveCorrectTextures = !original && !IsDemolition;
+        PerspectiveCorrectTextures = !original;
         GeometryCorrection = !original;
         PreciseCulling = !original;
         PerspectiveCorrectColors = !original;
@@ -319,10 +310,7 @@ public class ViewConfig
         MsaaSamples = original ? 0 : 2;
         AnisotropicFiltering = original ? 1 : 4;
         TextureMipmaps = !original && !IsDemolition;
-        // Demolition's PS1 traversal currently emits its authored 4:3 view.
-        // Keep that geometry intact by default; an explicit environment
-        // override can still enable widescreen for renderer development.
-        Widescreen = !original && !IsDemolition;
+        Widescreen = !original;
         HudAnchoring = !original;
         EnhancedShadows = !original;
         // Keep Demolition's authored particle silhouettes and blend coverage;

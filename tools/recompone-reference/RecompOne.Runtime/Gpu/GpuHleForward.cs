@@ -39,7 +39,6 @@ public sealed partial class Gpu
     static int s_vramLoadDumpIndex;
     static int _terrainPrimTraceCount;
     static bool _terrainCellTraced;
-    bool DitherEnabled => _dither && ConfigManager.View.Ps1Dithering;
     int _currentOtDepth;
     uint _currentOtPacketAddress;
     bool _currentOtPacketVehicle;
@@ -172,7 +171,7 @@ public sealed partial class Gpu
     {
         ClipX0 = _drawAreaLeft, ClipY0 = _drawAreaTop, ClipX1 = _drawAreaRight, ClipY1 = _drawAreaBottom,
         TwMaskX = _texWinMaskX, TwMaskY = _texWinMaskY, TwOffX = _texWinOffX, TwOffY = _texWinOffY,
-        SetMask = _setMask, CheckMask = _checkMask, Dither = DitherEnabled,
+        SetMask = _setMask, CheckMask = _checkMask,
     };
 
     HleVertex HV(in Vert v, in PrimFlags flags)

@@ -86,7 +86,6 @@ internal static class GlShaders
         flat out ivec2 clutBase;
         flat out ivec2 pageBase;
         flat out int   texMode;
-        flat out int   vDither;
         flat out int   vSmooth;
         flat out int   vUiTexture;
         flat out int   vParticle;
@@ -162,7 +161,6 @@ internal static class GlShaders
                 float((inColor >> 16) & 0xFFu), 0.0) / 255.0;
             vColorPerspective = unpackedColor;
             vColorAffine = unpackedColor;
-            vDither = (inTexpage >> 10) & 1;
             vSmooth = (inTexpage >> 11) & 1;
             vUiTexture = (inTexpage >> 12) & 1;
             vParticle = (inTexpage >> 13) & 1;
@@ -215,7 +213,6 @@ internal static class GlShaders
         flat in ivec2 clutBase;
         flat in ivec2 pageBase;
         flat in int   texMode;
-        flat in int   vDither;
         flat in int   vSmooth;
         flat in int   vUiTexture;
         flat in int   vParticle;
@@ -283,12 +280,6 @@ internal static class GlShaders
         const int MaterialVehicleReflection = 10;
         const int MaterialWaterBase = 11;
         const int MaterialWaterSurface = 12;
-
-        const int ditherTbl[16] = int[16](
-            -4,  0, -3,  1,
-             2, -2,  3, -1,
-            -3,  1, -4,  0,
-             3, -1,  2, -2 );
 
         int u5(float f) { return int(floor(f * 31.0 + 0.5)); }
         vec4 fetch(ivec2 c) { return texelFetch(uVram, (c & ivec2(1023, 511)) * uScale, 0); }
@@ -636,10 +627,6 @@ internal static class GlShaders
         vec3 quant5(ivec3 c8) {
             if (uTrueColor != 0)
                 return vec3(clamp(c8, 0, 255)) / 255.0;
-            if (vDither != 0) {
-                ivec2 vp = ivec2(floor(gl_FragCoord.xy / float(uScale) - uPosBias));
-                c8 = clamp(c8 + ditherTbl[(vp.y & 3) * 4 + (vp.x & 3)], 0, 255);
-            }
             return vec3(min(c8 >> 3, 31)) / 31.0;
         }
         vec4 primitiveBlend() {

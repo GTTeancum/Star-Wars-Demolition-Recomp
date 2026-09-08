@@ -92,6 +92,168 @@ EXTRA_OVERLAY_FUNCTIONS: dict[str, list[str]] = {
 
 PROVEN_PATCHES = [
     {
+        # Diagnostic/test marker for the profile gate before the requested 3D
+        # frontend; it does not alter the native profile implementation.
+        "overlay": "SHELL_SHELL",
+        "address": "801062CC",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionProfileState"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Process-local marker for Demolition's native 3D contestant selector.
+        "overlay": "SHELL_SHELL",
+        "address": "8010A7CC",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionContestantState"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Native tournament opponent-selection screen reached after confirming
+        # the player's contestant.
+        "overlay": "SHELL_SHELL",
+        "address": "801099CC",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionOpponentsState"
+        ),
+        "mode": "pre",
+    },
+    {
+        # The contestant/arena accept path uses this small scripted transition
+        # object.  Trace its animation handle and flags without replacing the
+        # retail callback so stalled frontend transitions can be diagnosed.
+        "overlay": "SHELL_SHELL",
+        "address": "80105710",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionFrontendTransition"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Parent controller for the shell's arena/contestant sequence.  Its
+        # state-5 child completion decides whether another selector is built
+        # or the shell exits into gameplay.
+        "overlay": "SHELL_SHELL",
+        "address": "8010D298",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionFrontendController"
+        ),
+        "mode": "pre",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010D298",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionFrontendControllerExit"
+        ),
+        "mode": "post",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010D954",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionFrontendLoopExit"
+        ),
+        "mode": "post",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010DEF8",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionShellFrontendExit"
+        ),
+        "mode": "post",
+    },
+    {
+        # Process-local marker for Demolition's native 3D arena selector.
+        "overlay": "SHELL_SHELL",
+        "address": "8010BE50",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionArenaState"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Demolition's native text renderer is the instruction-identical
+        # counterpart of V8:2's 0x8001A3B0 routine.  Observe this seam so the
+        # process-local menu harness can identify the 3D level/vehicle screens
+        # from their own authored labels without replacing retail menu logic.
+        "overlay": "main",
+        "address": "8001AE2C",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceNativeOptionsText"
+        ),
+        "mode": "pre",
+    },
+    {
+        # The 3D frontend (profiles, contestant, and arena selectors) submits
+        # its authored headings through this companion text renderer.
+        "overlay": "main",
+        "address": "8001B138",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceNativeOptionsText"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Profile names, selector labels, and the editable profile-name body
+        # use the variable-width companion rather than the heading renderer.
+        "overlay": "main",
+        "address": "8001B0D4",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceNativeOptionsText"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Observe the packet object produced by that variable-width renderer;
+        # this distinguishes missing glyph generation from a bad OT link.
+        "overlay": "main",
+        "address": "8001A344",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionTextObject"
+        ),
+        "mode": "post",
+    },
+    {
+        # Arena/contestant selectors create their scene object through this
+        # shared hierarchy factory; capture its returned object and fields.
+        "overlay": "main",
+        "address": "8002EDA8",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionModelCreate"
+        ),
+        "mode": "post",
+    },
+    {
+        # Observe which deepest child receives the selector's state-10 accept
+        # notification; this is diagnostic only and leaves hierarchy walking
+        # to the retail routine.
+        "overlay": "main",
+        "address": "8002FAFC",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "TraceDemolitionSelectorAcceptTarget"
+        ),
+        "mode": "post",
+    },
+    {
         "overlay": "main",
         "address": "80023C5C",
         "target": (
@@ -291,6 +453,70 @@ PROVEN_PATCHES = [
         "mode": "replace",
     },
     {
+        # Pad each selected terrain row into the columns newly visible at
+        # 16:9. The callee retains its native grid clamps.
+        "overlay": "main",
+        "address": "8001C954",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "ExpandTerrainRowSpan"
+        ),
+        "mode": "pre",
+    },
+    {
+        # Demolition's double-buffer flip is the later shared-engine version
+        # of V8:2 func_80014B3C. Retain its accounting, then move the next
+        # frame into the reserved loose-port packet arena so the wider terrain
+        # row spans cannot overwrite native packet state.
+        "overlay": "main",
+        "address": "800155C0",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "PrepareExpandedPrimitiveBuffer"
+        ),
+        "mode": "pre",
+    },
+    {
+        "overlay": "main",
+        "address": "800155C0",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "ActivateExpandedPrimitiveBuffer"
+        ),
+        "mode": "post",
+    },
+    {
+        # Build object/scenery planes from the widened gameplay extent without
+        # leaking the temporary value to later native code.
+        "overlay": "main",
+        "address": "800314F4",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "ExpandObjectFrustum"
+        ),
+        "mode": "pre",
+    },
+    {
+        "overlay": "main",
+        "address": "800314F4",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "RestoreObjectFrustum"
+        ),
+        "mode": "post",
+    },
+    {
+        # Match the per-object bounding-radius test to those widened planes so
+        # large scenery does not pop at the gameplay edges.
+        "overlay": "main",
+        "address": "80031730",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "WidenObjectVisibilityTest"
+        ),
+        "mode": "pre",
+    },
+    {
         # This is Demolition's per-frame world renderer. Marking this boundary
         # enables RecompOne's accelerated GPU backend only after the shell and
         # loading screens have completed their native VRAM transfers.
@@ -487,6 +713,30 @@ PROVEN_PATCHES = [
     },
     {
         "overlay": "SHELL_SHELL",
+        "address": "8010F32C",
+        "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellDecodeCallerPre",
+        "mode": "pre",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010F32C",
+        "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellDecodeCallerPost",
+        "mode": "post",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010EF04",
+        "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellImageDecodePre",
+        "mode": "pre",
+    },
+    {
+        "overlay": "SHELL_SHELL",
+        "address": "8010EF04",
+        "target": "RecompOne.Runtime.Sdk.V82Compat.PreserveShellImageDecodePost",
+        "mode": "post",
+    },
+    {
+        "overlay": "SHELL_SHELL",
         "address": "8010F644",
         "target": "RecompOne.Runtime.Sdk.V82Compat.RunDemolitionShellVlc",
         "mode": "replace",
@@ -584,12 +834,18 @@ def overlay_name(relative_path: Path) -> str:
 
 
 def discover_overlays(disc_root: Path) -> list[dict[str, object]]:
+    overlay_roots = {"LEVELS", "SHARED", "SHELL"}
     preferred = [
         disc_root / "SHELL" / "SHELL.DLL",
         disc_root / "SHELL" / "LOAD.DLL",
     ]
     remaining = sorted(
-        (path for path in disc_root.rglob("*.DLL") if path not in preferred),
+        (
+            path
+            for path in disc_root.rglob("*.DLL")
+            if path not in preferred
+            and path.relative_to(disc_root).parts[0].upper() in overlay_roots
+        ),
         key=lambda path: path.relative_to(disc_root).as_posix().upper(),
     )
 

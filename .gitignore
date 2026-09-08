@@ -1,0 +1,25 @@
+# User-supplied retail media and extracted disc contents
+/game/
+/work/
+/*.bin
+/*.cue
+
+# Generated recompilation and build output
+/reference/generated/
+/reference/recompiled/bin/
+/reference/recompiled/obj/
+/tools/recompone-reference/**/bin/
+/tools/recompone-reference/**/obj/
+
+# Runtime-local files
+*.log
+settings.json
+carda.sav
+cardb.sav
+
+# IDE and platform noise
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

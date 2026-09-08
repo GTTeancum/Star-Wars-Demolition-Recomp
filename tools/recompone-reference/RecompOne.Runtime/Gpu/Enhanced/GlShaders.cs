@@ -1,0 +1,1000 @@
+using Silk.NET.OpenGL;
+
+namespace RecompOne.Runtime.Enhanced;
+
+internal static class GlShaders
+{
+    public const string FullscreenVs = """
+        #version 330 core
+        layout(location = 0) in vec2 aPos;
+        out vec2 vUv;
+        void main() {
+            vUv = aPos * 0.5 + 0.5;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
+        """;
+
+    public const string PresentFs = """
+        #version 330 core
+        in vec2 vUv;
+        uniform sampler2D uVram;
+        uniform vec2 uOrigin;
+        uniform vec2 uSize;
+        uniform vec2 uTexSize;
+        out vec4 oColor;
+        void main() {
+            vec2 t = (uOrigin + vUv * uSize) / uTexSize;
+            oColor = vec4(texture(uVram, t).rgb, 1.0);
+        }
+        """;
+
+    public const string Present24Fs = """
+        #version 330 core
+        in vec2 vUv;
+        uniform sampler2D uVram;
+        uniform vec2 uOrigin;
+        uniform vec2 uSize;
+        uniform int uScale;
+        out vec4 oColor;
+
+        int u5(float f) { return int(floor(f * 31.0 + 0.5)); }
+        int texel16(int lin) {
+            vec4 p = texelFetch(uVram, ivec2((lin & 1023) * uScale, ((lin >> 10) & 511) * uScale), 0);
+            return u5(p.r) | (u5(p.g) << 5) | (u5(p.b) << 10) | (int(ceil(p.a)) << 15);
+        }
+        int byteAt(int b) {
+            int t = texel16(b >> 1);
+            return (b & 1) == 0 ? (t & 0xff) : ((t >> 8) & 0xff);
+        }
+        void main() {
+            int px = int(floor(vUv.x * uSize.x));
+            int py = int(floor(vUv.y * uSize.y));
+            int ty = int(uOrigin.y) + py;
+            int base = (ty * 1024 + int(uOrigin.x)) * 2 + px * 3;
+            oColor = vec4(float(byteAt(base)) / 255.0, float(byteAt(base + 1)) / 255.0,
+                          float(byteAt(base + 2)) / 255.0, 1.0);
+        }
+        """;
+
+    public const string PrimVs = """
+        #version 330 core
+        layout(location = 0) in vec2  inPos;
+        layout(location = 1) in uint  inColor;
+        layout(location = 2) in int   inClut;
+        layout(location = 3) in int   inTexpage;
+        layout(location = 4) in vec2  inUV;
+        layout(location = 5) in float inPerspectiveW;
+        layout(location = 6) in vec3  inBary;
+        layout(location = 7) in vec4  inUvBounds;
+        layout(location = 8) in float inDepth;
+        layout(location = 9) in float inRasterDepth;
+        layout(location = 10) in vec3 inViewPosition;
+        layout(location = 11) in vec3 inProjection;
+        layout(location = 12) in float inHasViewSpace;
+        layout(location = 13) in int inMaterial;
+        layout(location = 14) in vec4 inReplacementRect;
+        layout(location = 15) in vec3 inReplacementScale;
+        layout(location = 16) in vec3 inReplacementBias;
+        layout(location = 17) in int inBlendCode;
+        layout(location = 18) in uint inTerrainOffset;
+        layout(location = 19) in vec4 inTerrainMipRect;
+
+        out vec4 vColorPerspective;
+        noperspective out vec4 vColorAffine;
+        out vec2 vUVPerspective;
+        noperspective out vec2 vUVAffine;
+        flat out ivec2 clutBase;
+        flat out ivec2 pageBase;
+        flat out int   texMode;
+        flat out int   vDither;
+        flat out int   vSmooth;
+        flat out int   vUiTexture;
+        flat out int   vParticle;
+        flat out int   vShadow;
+        flat out int   vLongestEdge;
+        flat out int   vRadar;
+        flat out int   vHudPlate;
+        flat out int   vHealthPlate;
+        flat out int   vVehicle;
+        flat out int   vTerrainDebug;
+        flat out int   vN64RouteColor;
+        flat out int   vHudKeyedMagenta;
+        flat out int   vEffectContour;
+        flat out int   vModalPanel;
+        flat out int   vMaterial;
+        flat out int   vBlendCode;
+        flat out int   vDreamcastTerrainColor;
+        out vec3 vTerrainOffsetPerspective;
+        noperspective out vec3 vTerrainOffsetAffine;
+        flat out vec4  vReplacementRect;
+        flat out vec3  vReplacementScale;
+        flat out vec3  vReplacementBias;
+        flat out vec4  vTerrainMipRect;
+        flat out ivec4 vUvBounds;
+        noperspective out vec3 vBary;
+        out float vDepth;
+
+        uniform vec2 uVertexOffset;
+        uniform vec2 uPosBias;
+        uniform vec2 uFbInv;
+
+        void main() {
+            bool modernGeometry = inHasViewSpace > 0.5;
+            float viewZ = inViewPosition.z;
+            float safeViewZ =
+                abs(viewZ) < 0.0001
+                    ? (viewZ < 0.0 ? -0.0001 : 0.0001)
+                    : viewZ;
+            vec2 projectedPosition = modernGeometry
+                ? inProjection.xy +
+                    inViewPosition.xy *
+                    (inProjection.z / safeViewZ)
+                : inPos;
+            vec2 p =
+                (projectedPosition + uVertexOffset + uPosBias) *
+                uFbInv - 1.0;
+            float w = modernGeometry
+                ? viewZ
+                : max(inPerspectiveW, 1.0);
+            // Window depth must use the same reciprocal projection as XY.
+            // Feeding linear camera Z directly as NDC depth makes OpenGL
+            // interpolate large terrain triangles affinely in screen space;
+            // their interiors then move in front of nearby vehicles even
+            // though the triangle vertices are farther away.  Build a normal
+            // perspective depth projection from the camera-space value
+            // carried by the renderer seam instead.
+            const float depthNear = 1.0;
+            const float depthFar = 65535.0;
+            float cameraDepth =
+                clamp(inRasterDepth, depthNear / depthFar, 1.0) * depthFar;
+            float depthA =
+                (depthFar + depthNear) / (depthFar - depthNear);
+            float depthB =
+                (-2.0 * depthFar * depthNear) /
+                (depthFar - depthNear);
+            float ndcDepth = depthA + depthB / cameraDepth;
+            float clipZ = ndcDepth * w;
+            gl_Position = vec4(p * w, clipZ, w);
+
+            vec4 unpackedColor = vec4(
+                float(inColor & 0xFFu),
+                float((inColor >> 8) & 0xFFu),
+                float((inColor >> 16) & 0xFFu), 0.0) / 255.0;
+            vColorPerspective = unpackedColor;
+            vColorAffine = unpackedColor;
+            vDither = (inTexpage >> 10) & 1;
+            vSmooth = (inTexpage >> 11) & 1;
+            vUiTexture = (inTexpage >> 12) & 1;
+            vParticle = (inTexpage >> 13) & 1;
+            vShadow = (inTexpage >> 14) & 1;
+            vRadar = (inTexpage >> 16) & 1;
+            vHudPlate = (inTexpage >> 17) & 1;
+            vHealthPlate = (inTexpage >> 18) & 1;
+            vVehicle = (inTexpage >> 19) & 1;
+            vTerrainDebug = (inTexpage >> 20) & 1;
+            vN64RouteColor = (inTexpage >> 21) & 1;
+            vHudKeyedMagenta = (inTexpage >> 22) & 1;
+            vEffectContour = (inTexpage >> 23) & 1;
+            vModalPanel = (inTexpage >> 24) & 1;
+            vMaterial = inMaterial;
+            vBlendCode = inBlendCode;
+            vec3 unpackedTerrainOffset = vec3(
+                float(inTerrainOffset & 0xFFu),
+                float((inTerrainOffset >> 8) & 0xFFu),
+                float((inTerrainOffset >> 16) & 0xFFu)) / 255.0;
+            vTerrainOffsetPerspective = unpackedTerrainOffset;
+            vTerrainOffsetAffine = unpackedTerrainOffset;
+            vDreamcastTerrainColor = int((inTerrainOffset >> 24) & 1u);
+            vReplacementRect = inReplacementRect;
+            vReplacementScale = inReplacementScale;
+            vReplacementBias = inReplacementBias;
+            vTerrainMipRect = inTerrainMipRect;
+            vLongestEdge = inClut;
+            vUvBounds = ivec4(round(inUvBounds));
+            vBary = inBary;
+            vDepth = inDepth;
+
+            vUVPerspective = inUV;
+            vUVAffine = inUV;
+            if ((inTexpage & 0x8000) != 0) {
+                texMode = 4;
+            } else {
+                texMode = (inTexpage >> 7) & 3;
+                pageBase = ivec2((inTexpage & 0xf) * 64, ((inTexpage >> 4) & 1) * 256);
+                clutBase = ivec2((inClut & 0x3f) * 16, (inClut >> 6) & 0x1ff);
+            }
+        }
+        """;
+
+    public const string PrimFs = """
+        #version 330 core
+        in vec4 vColorPerspective;
+        noperspective in vec4 vColorAffine;
+        in vec2 vUVPerspective;
+        noperspective in vec2 vUVAffine;
+        flat in ivec2 clutBase;
+        flat in ivec2 pageBase;
+        flat in int   texMode;
+        flat in int   vDither;
+        flat in int   vSmooth;
+        flat in int   vUiTexture;
+        flat in int   vParticle;
+        flat in int   vShadow;
+        flat in int   vLongestEdge;
+        flat in int   vRadar;
+        flat in int   vHudPlate;
+        flat in int   vHealthPlate;
+        flat in int   vVehicle;
+        flat in int   vTerrainDebug;
+        flat in int   vN64RouteColor;
+        flat in int   vHudKeyedMagenta;
+        flat in int   vEffectContour;
+        flat in int   vModalPanel;
+        flat in int   vMaterial;
+        flat in int   vBlendCode;
+        flat in int   vDreamcastTerrainColor;
+        in vec3 vTerrainOffsetPerspective;
+        noperspective in vec3 vTerrainOffsetAffine;
+        flat in vec4  vReplacementRect;
+        flat in vec3  vReplacementScale;
+        flat in vec3  vReplacementBias;
+        flat in vec4  vTerrainMipRect;
+        flat in ivec4 vUvBounds;
+        noperspective in vec3 vBary;
+        in float vDepth;
+
+        layout(location = 0, index = 0) out vec4 FragColor;
+        layout(location = 0, index = 1) out vec4 BlendColor;
+
+        uniform sampler2D uVram;
+        uniform sampler2D uDest;
+        uniform sampler2D uHudSvg;
+        uniform sampler2D uReplacementAtlas;
+        uniform sampler2D uTerrainMipAtlas;
+        uniform vec2  uReplacementAtlasSize;
+        uniform vec2  uTerrainMipAtlasSize;
+        uniform ivec4 uTexWindow;
+        uniform vec4  uBlend;
+        uniform vec4  uBlendOpaque = vec4(1.0, 1.0, 1.0, 0.0);
+        uniform float uSetMask;
+        uniform int   uCheckMask;
+        uniform int   uTextureSmoothing;
+        uniform int   uTextureMipmaps;
+        uniform int   uAnisotropy;
+        uniform int   uEnhancedShadows;
+        uniform int   uEnhancedParticles;
+        uniform int   uEnhancedFog;
+        uniform vec3  uFogColor;
+        uniform int   uFogColorValid;
+        uniform int   uDreamcastFogActive;
+        uniform int   uPerspectiveCorrectTextures;
+        uniform int   uPerspectiveCorrectColors;
+        uniform int   uTrueColor;
+        uniform int   uVectorFonts;
+        uniform int   uVectorIcons;
+        uniform int   uStockPaintCorrection;
+        uniform int   uScale;
+        uniform vec2  uPosBias;
+
+        const int MaterialGlass = 3;
+        const int MaterialAdditive = 5;
+        const int MaterialSubtractive = 6;
+        const int MaterialTerrainRoute = 9;
+        const int MaterialVehicleReflection = 10;
+        const int MaterialWaterBase = 11;
+        const int MaterialWaterSurface = 12;
+
+        const int ditherTbl[16] = int[16](
+            -4,  0, -3,  1,
+             2, -2,  3, -1,
+            -3,  1, -4,  0,
+             3, -1,  2, -2 );
+
+        int u5(float f) { return int(floor(f * 31.0 + 0.5)); }
+        vec4 fetch(ivec2 c) { return texelFetch(uVram, (c & ivec2(1023, 511)) * uScale, 0); }
+        int fetch16(ivec2 c) {
+            vec4 p = fetch(c);
+            return u5(p.r) | (u5(p.g) << 5) | (u5(p.b) << 10) | (int(ceil(p.a)) << 15);
+        }
+        ivec2 textureWindow(ivec2 uv) {
+            if (vHudKeyedMagenta != 0) {
+                return uv & ivec2(0xff);
+            }
+            uv = (uv & uTexWindow.xy) | uTexWindow.zw;
+            return uv & ivec2(0xff);
+        }
+        vec4 textureTexel(ivec2 uv) {
+            uv = textureWindow(uv);
+
+            if (texMode == 0) {
+                int s = fetch16(ivec2(pageBase.x + (uv.x >> 2), pageBase.y + uv.y));
+                int idx = (s >> ((uv.x & 3) << 2)) & 0xf;
+                return fetch(ivec2(clutBase.x + idx, clutBase.y));
+            } else if (texMode == 1) {
+                int s = fetch16(ivec2(pageBase.x + (uv.x >> 1), pageBase.y + uv.y));
+                int idx = (s >> ((uv.x & 1) << 3)) & 0xff;
+                return fetch(ivec2(clutBase.x + idx, clutBase.y));
+            }
+
+            return fetch(ivec2(pageBase.x + uv.x, pageBase.y + uv.y));
+        }
+        bool transparentBlack(vec4 texel) {
+            return all(equal(texel.rgb, vec3(0.0))) && texel.a < 0.5;
+        }
+
+        vec4 smoothedTexture(vec2 uvf, vec4 nearestTexel) {
+            // Resolve the indexed PS1 page before filtering.  Enhanced keeps
+            // continuous sub-texel coordinates and clamps each primitive to
+            // its authored UV bounds, producing a clean virtual 512-class
+            // source without palette-index filtering or atlas bleed.
+            vec2 p = uvf - vec2(0.5);
+            ivec2 uv0 = ivec2(floor(p));
+            vec2 f = fract(p);
+            ivec2 boundMin = vUvBounds.xy;
+            ivec2 boundMax = max(vUvBounds.zw, boundMin);
+            vec4 s00 = textureTexel(clamp(uv0, boundMin, boundMax));
+            vec4 s10 = textureTexel(clamp(
+                uv0 + ivec2(1, 0), boundMin, boundMax));
+            vec4 s01 = textureTexel(clamp(
+                uv0 + ivec2(0, 1), boundMin, boundMax));
+            vec4 s11 = textureTexel(clamp(
+                uv0 + ivec2(1, 1), boundMin, boundMax));
+            if (transparentBlack(s00)) s00.rgb = nearestTexel.rgb;
+            if (transparentBlack(s10)) s10.rgb = nearestTexel.rgb;
+            if (transparentBlack(s01)) s01.rgb = nearestTexel.rgb;
+            if (transparentBlack(s11)) s11.rgb = nearestTexel.rgb;
+            vec3 rgb = mix(
+                mix(s00.rgb, s10.rgb, f.x),
+                mix(s01.rgb, s11.rgb, f.x),
+                f.y);
+            return vec4(rgb, nearestTexel.a);
+        }
+        vec4 filteredTexture(vec2 uvf, vec4 nearestTexel) {
+            vec4 base = smoothedTexture(uvf, nearestTexel);
+            bool vectorUi = vUiTexture != 0 &&
+                ((vParticle != 0 && uVectorFonts != 0) ||
+                 (vShadow != 0 && uVectorIcons != 0));
+            if ((vUiTexture != 0 && !vectorUi) ||
+                vMaterial != MaterialTerrainRoute ||
+                (uTextureMipmaps == 0 && uAnisotropy <= 1))
+                return base;
+
+            // Only Dreamcast XBMP terrain and the small XRTP subset carry
+            // authored mip chains. Ordinary scene/building textures are
+            // explicitly non-mipmapped in the retail assets, so distance may
+            // never switch their sampling footprint. For native indexed
+            // terrain fallback, reconstruct that footprint after palette
+            // lookup; conventional hardware mipmaps would blend indices.
+            vec2 dx = dFdx(uvf), dy = dFdy(uvf);
+            float lx = length(dx), ly = length(dy);
+            vec2 major = lx >= ly ? dx : dy;
+            float footprint = max(lx, ly);
+            float minor = max(min(lx, ly), 1.0);
+            float ratio = clamp(footprint / minor, 1.0, float(max(uAnisotropy, 1)));
+            float mipBlend = uTextureMipmaps != 0 ? smoothstep(1.0, 3.0, footprint) : 0.0;
+            float span = 0.35 * max(ratio - 1.0, mipBlend);
+            if (span <= 0.001) return base;
+            vec2 axis = normalize(major + vec2(1e-6)) * span;
+            vec3 rgb =
+                smoothedTexture(uvf - axis, nearestTexel).rgb * 0.5 +
+                smoothedTexture(uvf + axis, nearestTexel).rgb * 0.5;
+            return vec4(rgb, nearestTexel.a);
+        }
+        vec4 replacementSample(
+            vec2 atlasPixel, vec2 minPixel, vec2 maxPixel,
+            vec2 atlasSize) {
+            return texture(
+                uReplacementAtlas,
+                clamp(atlasPixel, minPixel, maxPixel) / atlasSize);
+        }
+        vec4 replacementTexture(vec2 uvf) {
+            vec2 sourceSize = vec2(
+                max(vUvBounds.z - vUvBounds.x + 1, 1),
+                max(vUvBounds.w - vUvBounds.y + 1, 1));
+            vec2 local =
+                (uvf - vec2(vUvBounds.xy) + vec2(0.5)) / sourceSize;
+            vec2 outputSize = max(vReplacementRect.zw, vec2(1.0));
+            vec2 halfTexel = vec2(0.5) / outputSize;
+            local = clamp(local, halfTexel, vec2(1.0) - halfTexel);
+            vec2 atlasPixel =
+                vReplacementRect.xy + local * vReplacementRect.zw;
+            vec2 atlasSize = max(uReplacementAtlasSize, vec2(1.0));
+            vec2 atlasUv = atlasPixel / atlasSize;
+            bool smoothFontReplacement =
+                vUiTexture != 0 && vParticle != 0;
+            bool exactUiReplacement =
+                vUiTexture != 0 && !smoothFontReplacement;
+            vec2 minPixel = vReplacementRect.xy + vec2(0.5);
+            vec2 maxPixel = vReplacementRect.xy +
+                max(vReplacementRect.zw - vec2(0.5), vec2(0.5));
+            vec4 texel = exactUiReplacement
+                ? texelFetch(
+                    uReplacementAtlas,
+                    ivec2(clamp(
+                        floor(atlasPixel),
+                        vReplacementRect.xy,
+                        vReplacementRect.xy + vReplacementRect.zw - vec2(1.0))),
+                    0)
+                : replacementSample(
+                    atlasPixel, minPixel, maxPixel, atlasSize);
+            if (!exactUiReplacement &&
+                vMaterial == MaterialTerrainRoute &&
+                uTextureMipmaps != 0 && vTerrainMipRect.z > 0.0) {
+                // Dreamcast XBMP terrain textures carry authored mip chains;
+                // ordinary object, building and vehicle textures do not.
+                // The dedicated atlas gives every terrain tile a complete,
+                // edge-extended cell so trilinear sampling cannot bleed from
+                // a neighboring tile at any usable mip level.
+                vec2 terrainPixel = vTerrainMipRect.xy +
+                    local * vTerrainMipRect.zw;
+                vec2 terrainSize = max(
+                    uTerrainMipAtlasSize, vec2(1.0));
+                texel = textureGrad(
+                    uTerrainMipAtlas,
+                    terrainPixel / terrainSize,
+                    dFdx(terrainPixel) / terrainSize,
+                    dFdy(terrainPixel) / terrainSize);
+            }
+            texel.rgb = clamp(
+                texel.rgb * vReplacementScale + vReplacementBias,
+                vec3(0.0), vec3(1.0));
+            return texel;
+        }
+        vec4 contourTexture(vec2 uvf, out float coverage, out float stp) {
+            // Reconstruct a continuous silhouette from the four surrounding
+            // indexed texels. This supplies sub-texel contours for small font
+            // sprites and genuine fractional coverage for translucent world
+            // effects without filtering palette indices or black transparency
+            // into the visible colour.
+            vec2 p = uvf - vec2(0.5);
+            ivec2 uv0 = ivec2(floor(p));
+            vec2 f = fract(p);
+            ivec2 boundMin = vUvBounds.xy;
+            ivec2 boundMax = max(vUvBounds.zw, boundMin);
+            vec4 s00 = textureTexel(clamp(uv0, boundMin, boundMax));
+            vec4 s10 = textureTexel(clamp(uv0 + ivec2(1, 0), boundMin, boundMax));
+            vec4 s01 = textureTexel(clamp(uv0 + ivec2(0, 1), boundMin, boundMax));
+            vec4 s11 = textureTexel(clamp(uv0 + ivec2(1, 1), boundMin, boundMax));
+            vec4 w = vec4(
+                (1.0 - f.x) * (1.0 - f.y),
+                f.x * (1.0 - f.y),
+                (1.0 - f.x) * f.y,
+                f.x * f.y);
+            vec4 o = vec4(
+                transparentBlack(s00) ? 0.0 : 1.0,
+                transparentBlack(s10) ? 0.0 : 1.0,
+                transparentBlack(s01) ? 0.0 : 1.0,
+                transparentBlack(s11) ? 0.0 : 1.0);
+            vec4 ow = o * w;
+            coverage = dot(ow, vec4(1.0));
+            if (coverage <= 0.0001) {
+                stp = 0.0;
+                return vec4(0.0);
+            }
+            vec3 rgb = (s00.rgb * ow.x + s10.rgb * ow.y +
+                        s01.rgb * ow.z + s11.rgb * ow.w) / coverage;
+            stp = (s00.a * ow.x + s10.a * ow.y +
+                   s01.a * ow.z + s11.a * ow.w) / coverage;
+            return vec4(rgb, stp);
+        }
+        vec4 svgHudTexture(vec2 p) {
+            // The three source documents are rasterized at 8x into a 1024
+            // square atlas. Geometry and rings originate in the SVGs; this
+            // shader only maps the current HUD rectangle into its atlas tile.
+            vec2 origin = vRadar != 0
+                ? vec2(0.0, 0.0)
+                : (vHealthPlate != 0
+                    ? vec2(736.0, 440.0)
+                    : vec2(0.0, 440.0));
+            vec2 atlasPixel = origin + p * 8.0;
+            return texture(uHudSvg, (atlasPixel + vec2(0.5)) / 1024.0);
+        }
+        vec3 stockPaintCorrection(vec3 rgb) {
+            if (vVehicle == 0 ||
+                uStockPaintCorrection == 0 ||
+                vMaterial == MaterialVehicleReflection) return rgb;
+            float dominantGreen = rgb.g - max(rgb.r, rgb.b);
+            if (dominantGreen <= 0.08 || rgb.g <= 0.16 || rgb.r >= 0.48) return rgb;
+            float body = smoothstep(0.08, 0.28, dominantGreen) *
+                (1.0 - smoothstep(0.46, 0.60, rgb.r));
+            vec3 blue = vec3(
+                rgb.r * 0.24 + rgb.b * 0.05,
+                rgb.g * 0.24 + rgb.r * 0.08,
+                clamp(rgb.g * 1.12 + rgb.b * 0.45, 0.0, 1.0));
+            return mix(rgb, blue, body);
+        }
+        float rasterCameraDepth() {
+            const float depthNear = 1.0;
+            const float depthFar = 65535.0;
+            const float depthA =
+                (depthFar + depthNear) / (depthFar - depthNear);
+            const float depthB =
+                (-2.0 * depthFar * depthNear) /
+                (depthFar - depthNear);
+            float ndcDepth = gl_FragCoord.z * 2.0 - 1.0;
+            float denominator = ndcDepth - depthA;
+            if (abs(denominator) < 0.000001) return vDepth;
+            return clamp(depthB / denominator, 1.0, depthFar);
+        }
+        float dreamcastFogOpacityAt(float tableIndex) {
+            float i = clamp(floor(tableIndex), 0.0, 128.0);
+            float exponent = floor(i / 16.0);
+            float mantissa = mod(i, 16.0) + 16.0;
+            // Retail 0x8C094680 builds a 129-float fog-opacity table from
+            // these exact single-precision constants. 0x8C043D00 truncates
+            // every entry to eight bits before the PVR linearly interpolates
+            // adjacent values.
+            float inverseDepth =
+                4.4160004 / (mantissa * exp2(exponent));
+            float opacity;
+            if (inverseDepth < 0.080000006)
+                opacity = 0.0;
+            else if (inverseDepth > 0.13800001)
+                opacity = 1.0;
+            else
+                opacity =
+                    (inverseDepth - 0.080000006) * 17.241377;
+            return floor(clamp(opacity, 0.0, 1.0) * 255.0) / 255.0;
+        }
+        float dreamcastFogAmount(float ps1Depth) {
+            // The converted levels retain a 256:1 PS1-to-Dreamcast world
+            // scale. Dreamcast projection uses a 512-pixel focal scalar and
+            // 0x8C101DC0 submits reciprocal PVR depth as
+            // 0.9 * 512 / viewDepth. The PVR density register receives
+            // 0.276f, truncated by 0x8C094640 to mantissa 141 / exponent -2
+            // = 0.275390625, and scales that submitted reciprocal depth.
+            float dreamcastDepth = max(ps1Depth / 256.0, 0.000001);
+            // The retail Dreamcast build stores a 512.0 projection scale at
+            // 0x8c2747cc.  Its transform path multiplies reciprocal view Z by
+            // that value and the recovered 0.9 depth bias before submitting
+            // the vertex to the PVR (0.9 * 512.0 = 460.8).  The adjacent
+            // 320.0/240.0 constants are the screen centre, not projection.
+            float pvrReciprocalDepth = 460.8 / dreamcastDepth;
+            float z = clamp(
+                0.275390625 * pvrReciprocalDepth, 1.0, 255.9999);
+            float exponent = floor(log2(z));
+            float m = z * 16.0 / exp2(exponent) - 16.0;
+            float tableIndex = floor(m) + exponent * 16.0;
+            float fraction = m - floor(m);
+            float opacity0 = dreamcastFogOpacityAt(tableIndex);
+            float opacity1 = dreamcastFogOpacityAt(
+                min(tableIndex + 1.0, 128.0));
+            return mix(opacity0, opacity1, fraction);
+        }
+        vec3 distanceFog(vec3 rgb) {
+            if (uEnhancedFog == 0 ||
+                vUiTexture != 0 ||
+                vShadow != 0 ||
+                vDepth <= 1.0) {
+                return rgb;
+            }
+            if (uDreamcastFogActive != 0 && uFogColorValid != 0) {
+                return clamp(
+                    mix(rgb, uFogColor, dreamcastFogAmount(vDepth)),
+                    0.0, 1.0);
+            }
+            if (vMaterial == MaterialTerrainRoute)
+                return rgb;
+            // Terrain packets already carry the engine's authored distance
+            // lighting in their Gouraud colours. Applying host atmosphere to
+            // that material a second time erases the visible texture and
+            // turns bright-sky horizons white. Other world materials still
+            // use the recovered-depth atmosphere below.
+            // vDepth is recovered camera/projective depth whenever the
+            // conversion seam owns it, and falls back to the native ordering
+            // table estimate only for legacy packet-space geometry. Hardware
+            // Z cannot be used as the atmosphere distance here: the default
+            // depth contract deliberately preserves coarse PS1 OT buckets for
+            // visibility, so a nearby wall in a far bucket can otherwise fog
+            // as if it were on the horizon.
+            float fogDepth = max(vDepth, 1.0);
+
+            // Fade every world material using recovered camera/OT depth after texture
+            // modulation. The previous textured-only pre-modulation haze was
+            // undone by bright vertex colours and skipped meshes without an
+            // exact GTE SZ, leaving distant buildings fully saturated.
+            //
+            // Converge on the arena's own backdrop colour. The former target
+            // was a synthesized mid-grey haze, which is not where distance
+            // takes anything: geometry approaching the terrain draw limit went
+            // grey while the sky behind it stayed bright and warm, so the
+            // horizon read as a hard cut instead of a fade, and distant props
+            // never stopped standing out. Blend all the way to that colour at
+            // the far limit so the last terrain row is the sky.
+            if (uFogColorValid == 0) {
+                // No backdrop colour available - either none has been seen yet
+                // or the A/B control disabled the harvest. Reproduce the
+                // previous synthesized haze exactly.
+                float amount = smoothstep(2600.0, 8500.0, fogDepth) * 0.76;
+                float lum = dot(rgb, vec3(0.299, 0.587, 0.114));
+                float atmosphericLum = clamp(mix(lum, 0.58, 0.70), 0.48, 0.68);
+                float warmth = clamp((rgb.r - rgb.b) * 0.25 + 0.10, 0.0, 0.22);
+                vec3 cool = vec3(0.98, 1.00, 1.04) * atmosphericLum;
+                vec3 warm = vec3(1.06, 1.00, 0.90) * atmosphericLum;
+                return clamp(
+                    mix(rgb, mix(cool, warm, warmth), amount), 0.0, 1.0);
+            }
+
+            // The terrain walker stops at roughly 20000 camera units. Native
+            // packets already carry authored distance lighting in their
+            // vertex modulation, so a bright sky plate must remain only a
+            // light atmospheric tint. A strong second blend erases terrain
+            // texture and converts distant structures into white cutouts.
+            // Darker backdrops can still absorb the last row completely.
+            float targetLuma = dot(
+                uFogColor, vec3(0.299, 0.587, 0.114));
+            float brightTarget = smoothstep(0.82, 0.94, targetLuma);
+            float maximumAmount = mix(1.0, 0.24, brightTarget);
+            float amount =
+                pow(smoothstep(2200.0, 20500.0, fogDepth), 0.62) *
+                maximumAmount;
+            return clamp(mix(rgb, uFogColor, amount), 0.0, 1.0);
+        }
+        vec3 stockPaintCorrection8(ivec3 c8) {
+            return stockPaintCorrection(vec3(c8) / 255.0);
+        }
+        vec3 quant5(ivec3 c8) {
+            if (uTrueColor != 0)
+                return vec3(clamp(c8, 0, 255)) / 255.0;
+            if (vDither != 0) {
+                ivec2 vp = ivec2(floor(gl_FragCoord.xy / float(uScale) - uPosBias));
+                c8 = clamp(c8 + ditherTbl[(vp.y & 3) * 4 + (vp.x & 3)], 0, 255);
+            }
+            return vec3(min(c8 >> 3, 31)) / 31.0;
+        }
+        vec4 primitiveBlend() {
+            if (vBlendCode == 0)
+                return uBlendOpaque;
+            if (vBlendCode == 1)
+                return vec4(0.5, 0.5, 0.5, 0.5);
+            if (vBlendCode == 2)
+                return vec4(1.0);
+            if (vBlendCode == 3)
+                return uBlend;
+            return vec4(0.25, 0.25, 0.25, 1.0);
+        }
+        void main() {
+            if (uCheckMask != 0 && texelFetch(uDest, ivec2(gl_FragCoord.xy), 0).a >= 0.5) discard;
+            if (vModalPanel != 0) {
+                // Analytic geometry in native layout units, antialiased at
+                // the actual output resolution. No low-res border texture.
+                vec2 halfSize = vec2(vUvBounds.zw) * 0.5;
+                vec2 q = abs(vUVAffine - halfSize) - halfSize + 7.0;
+                float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 7.0;
+                float aa = max(fwidth(sd), 0.05);
+                float coverage = 1.0 - smoothstep(-aa, aa, sd);
+                if (coverage <= 0.001) discard;
+                float border = smoothstep(-2.0-aa, -2.0+aa, sd);
+                vec3 gold = mix(vec3(0.66, 0.33, 0.035), vec3(1.0, 0.79, 0.08),
+                    1.0 - vUVAffine.y / max(halfSize.y * 2.0, 1.0));
+                vec3 color = mix(vec3(0.035, 0.045, 0.035), gold, border);
+                float alpha = mix(0.84, 1.0, border) * coverage;
+                FragColor = vec4(color, uSetMask);
+                BlendColor = vec4(vec3(alpha), 1.0-alpha);
+                return;
+            }
+            if (vTerrainDebug != 0) {
+                FragColor = vec4(1.0, 0.0, 1.0, uSetMask);
+                BlendColor = uBlendOpaque;
+                return;
+            }
+
+            if (texMode == 4) {
+                // RDP shade coefficients are affine screen-space planes for
+                // converted N64 route packets even when the road/terrain
+                // polygon is untextured. Keep the same color domain used
+                // below by textured N64 route fragments instead of warping
+                // fallback route colors through perspective interpolation.
+                vec4 vertexColor = vN64RouteColor != 0
+                    ? vColorAffine
+                    : (uPerspectiveCorrectColors != 0
+                        ? vColorPerspective
+                        : vColorAffine);
+                vec3 corrected = distanceFog(
+                    stockPaintCorrection(vertexColor.rgb));
+                float materialAlpha = vMaterial == MaterialWaterBase
+                    ? 0.6901960784
+                    : uSetMask;
+                FragColor = vec4(
+                    quant5(ivec3(corrected * 255.0 + 0.5)),
+                    materialAlpha);
+                float coverage = 1.0;
+                if (uEnhancedShadows != 0 && vShadow != 0) {
+                    // Shadow quads arrive as two triangles. Ignore each
+                    // triangle's longest edge, normally the shared diagonal,
+                    // so softening does not draw a seam through the shadow.
+                    float edge = vLongestEdge == 0 ? min(vBary.y, vBary.z) :
+                                 vLongestEdge == 1 ? min(vBary.x, vBary.z) :
+                                                     min(vBary.x, vBary.y);
+                    coverage = smoothstep(0.0, max(fwidth(edge) * 2.5, 0.001), edge) * 0.72;
+                }
+                vec4 authoredBlend = primitiveBlend();
+                BlendColor = vec4(
+                    authoredBlend.rgb * coverage,
+                    authoredBlend.a);
+                return;
+            }
+
+            vec2 sampleUV = uPerspectiveCorrectTextures != 0
+                ? vUVPerspective
+                : vUVAffine;
+            // RDP shade coefficients are affine screen-space planes. The
+            // N64 route path carries its decoded COLS shade in vertexColor;
+            // do not perspective-correct that plane as if it were a texture.
+            vec4 vertexColor = vN64RouteColor != 0
+                ? vColorAffine
+                : (uPerspectiveCorrectColors != 0
+                    ? vColorPerspective
+                    : vColorAffine);
+            int rawU = dFdx(sampleUV.x) < 0.0 ? int(ceil(sampleUV.x - 0.0001)) : int(floor(sampleUV.x + 0.0001));
+            int rawV = dFdy(sampleUV.y) < 0.0 ? int(ceil(sampleUV.y - 0.0001)) : int(floor(sampleUV.y + 0.0001));
+            ivec2 nearestUv = ivec2(rawU, rawV);
+            if (vUiTexture == 0) {
+                ivec2 boundMin = vUvBounds.xy;
+                ivec2 boundMax = max(vUvBounds.zw, boundMin);
+                nearestUv = clamp(nearestUv, boundMin, boundMax);
+            }
+            vec4 nearestTexel = textureTexel(nearestUv);
+            bool hasReplacement = vReplacementRect.z > 0.0;
+            vec4 texel = hasReplacement
+                ? replacementTexture(sampleUV)
+                : (uTextureSmoothing != 0 && vSmooth != 0
+                    ? filteredTexture(sampleUV, nearestTexel)
+                    : nearestTexel);
+            bool vehicleReflection =
+                vMaterial == MaterialVehicleReflection;
+            bool fontPrimitive =
+                vUiTexture != 0 && vParticle != 0;
+            // Font replacement validity belongs to the resolved atlas entry,
+            // not to the alpha of the fragment currently being shaded. An
+            // opaque interior pixel is still part of an alpha-authored glyph;
+            // treating it as an opaque atlas made every glyph fall back to the
+            // native low-resolution sheet except along its antialiased edge.
+            bool replacementFont = hasReplacement && fontPrimitive;
+            bool vectorFont =
+                fontPrimitive && uVectorFonts != 0 && !replacementFont;
+            bool vectorIcon =
+                vUiTexture != 0 && vShadow != 0 && uVectorIcons != 0;
+            bool enhancedParticle =
+                vUiTexture == 0 && vParticle != 0 && uEnhancedParticles != 0;
+            bool exactBlendMaterial =
+                vMaterial == MaterialAdditive ||
+                vMaterial == MaterialSubtractive;
+            bool enhancedEffectContour =
+                vUiTexture == 0 && vEffectContour != 0 &&
+                uEnhancedParticles != 0;
+            bool svgHud = vHudPlate != 0 && uVectorIcons != 0;
+            if (vHudKeyedMagenta != 0 &&
+                nearestTexel.r > 0.92 &&
+                nearestTexel.g > 0.20 &&
+                nearestTexel.g < 0.58 &&
+                nearestTexel.b > 0.50) {
+                discard;
+            }
+            vec2 hudLocal = sampleUV - vec2(vUvBounds.xy);
+            float hudCoverage = 1.0;
+            float contourCoverage = 1.0;
+            float contourStp = nearestTexel.a;
+
+            if ((replacementFont || vectorFont ||
+                 vectorIcon || enhancedParticle || enhancedEffectContour) &&
+                !svgHud) {
+                if (replacementFont) {
+                    contourCoverage = clamp(texel.a, 0.0, 1.0);
+                    if (contourCoverage <= 0.01) {
+                        discard;
+                    }
+                    texel.rgb = vec3(1.0);
+                    texel.a = 1.0;
+                } else {
+                    texel = contourTexture(sampleUV, contourCoverage, contourStp);
+                }
+                if (vectorIcon && vHudPlate == 0) {
+                    texel.rgb = nearestTexel.rgb;
+                }
+                if (vectorFont && !replacementFont) {
+                    contourCoverage = smoothstep(0.18, 0.72, contourCoverage);
+                    if (contourCoverage <= 0.01) {
+                        discard;
+                    }
+                } else if (vectorIcon) {
+                    // A half-coverage contour gives the original bitmap glyph
+                    // or UI plate a stable, resolution-independent high-
+                    // resolution edge. Final presentation AA handles the
+                    // fractional screen edge.
+                    if (contourCoverage < 0.5) {
+                        discard;
+                    }
+                } else if (contourCoverage <= 0.01) {
+                    discard;
+                }
+            }
+
+            if (transparentBlack(nearestTexel)) {
+                // PS1 color 0x0000 is transparent for every textured
+                // polygon, including authored vehicle-reflection faces.
+                // Kind-12 can cover an ordinary keyed wheel triangle; letting
+                // reflection provenance bypass this test exposes its black
+                // texture card as a square around the wheel.
+                // UI transparency is binary in the original packets. Do not
+                // synthesize coverage outside glyph/icon silhouettes: opaque
+                // UI draws do not have a usable alpha blend and doing so
+                // creates dark halos. Particle sprites are semitransparent and
+                // can safely reconstruct their edge coverage.
+                bool filteredEdge =
+                    replacementFont || vectorFont || vectorIcon ||
+                    enhancedParticle || enhancedEffectContour;
+                if (!svgHud && !filteredEdge) discard;
+            }
+            if (svgHud) {
+                vec4 vectorTexel = svgHudTexture(hudLocal);
+                hudCoverage = vectorTexel.a;
+                if (hudCoverage <= 0.001) discard;
+                vectorTexel.rgb /= max(hudCoverage, 0.001);
+                // Every nontransparent backing texel in the retail CLUT has
+                // STP set and uses blend mode 0. Preserve that material blend;
+                // only the authored SVG supplies color and edge coverage.
+                texel = vec4(vectorTexel.rgb, 1.0);
+            }
+            texel.rgb = stockPaintCorrection(texel.rgb);
+            if (vehicleReflection) {
+                // Kind-12 packets already carry V8:2's native environment
+                // sample and normal-derived UVs. Preserve both native roles:
+                // opaque kind-12 packets replace the surface, while kind-12
+                // packets carrying the native semitransparency bit use their
+                // authored STP/blend mode as the coplanar gloss pass.
+                FragColor = vec4(distanceFog(texel.rgb), 1.0);
+                BlendColor = nearestTexel.a >= 0.5
+                    ? primitiveBlend()
+                    : uBlendOpaque;
+                return;
+            }
+            if (vDreamcastTerrainColor != 0) {
+                // Dreamcast 0x8C101E20 submits PVR base and offset colors.
+                // PVR combines them as texture*base+offset; these colors are
+                // already in the native /255 domain and must not pass through
+                // the PS1 packet modulation equation below.
+                vec3 terrainOffset = uPerspectiveCorrectColors != 0
+                    ? vTerrainOffsetPerspective
+                    : vTerrainOffsetAffine;
+                vec3 terrainColor = clamp(
+                    texel.rgb * vertexColor.rgb + terrainOffset,
+                    vec3(0.0), vec3(1.0));
+                FragColor = vec4(
+                    quant5(ivec3(terrainColor * 255.0 + 0.5)),
+                    max(texel.a, uSetMask));
+                BlendColor = nearestTexel.a >= 0.5
+                    ? primitiveBlend()
+                    : uBlendOpaque;
+                return;
+            }
+            ivec3 t8 = ivec3(texel.rgb * 31.0 + 0.5) << 3;
+            ivec3 modulation = ivec3(vertexColor.rgb * 255.0 + 0.5);
+            // Native PS1 packets use /128 colour modulation. Converted N64
+            // route shades come from the RDP, whose 8-bit combiner multiplies
+            // by /255. Keep the two numeric domains explicit.
+            ivec3 c8 = vN64RouteColor != 0
+                ? (t8 * modulation + 127) / 255
+                : (t8 * modulation) >> 7;
+            if (enhancedEffectContour) {
+                bool exactBlendEffect = exactBlendMaterial;
+                float effectEnergy = max(
+                    float(c8.r),
+                    max(float(c8.g), float(c8.b))) / 255.0;
+                vec2 effectBoundMin = vec2(vUvBounds.xy);
+                vec2 effectBoundMax = vec2(max(vUvBounds.zw, vUvBounds.xy));
+                vec2 effectSpan = max(
+                    effectBoundMax - effectBoundMin,
+                    vec2(1.0));
+                vec2 effectLocal = clamp(
+                    (sampleUV - effectBoundMin) / effectSpan,
+                    vec2(0.0),
+                    vec2(1.0));
+                vec2 effectCentered =
+                    effectLocal * vec2(2.0) - vec2(1.0);
+                float exactEffectFalloff = exactBlendEffect
+                    ? 1.0 - smoothstep(
+                        0.24,
+                        1.0,
+                        dot(effectCentered, effectCentered))
+                    : 1.0;
+                vec2 effectEdgeDistance = min(
+                    sampleUV - effectBoundMin,
+                    effectBoundMax - sampleUV);
+                float effectEdgeCoverage = smoothstep(
+                    0.0,
+                    5.0,
+                    min(effectEdgeDistance.x, effectEdgeDistance.y));
+                float effectCoverage =
+                    (exactBlendEffect
+                        ? smoothstep(0.20, 0.72, effectEnergy)
+                        : smoothstep(0.12, 0.30, effectEnergy)) *
+                    effectEdgeCoverage *
+                    exactEffectFalloff;
+                contourCoverage *= effectCoverage * effectCoverage;
+                if (contourCoverage <= 0.001) discard;
+            }
+            vec3 corrected = distanceFog(stockPaintCorrection8(c8));
+            float materialAlpha = vMaterial == MaterialWaterSurface
+                ? 0.5019607843
+                : max(texel.a, uSetMask);
+            FragColor = vec4(
+                quant5(ivec3(corrected * 255.0 + 0.5)),
+                materialAlpha);
+            if (svgHud) {
+                vec4 analyticBlend =
+                    texel.a >= 0.5 ? primitiveBlend() : uBlendOpaque;
+                BlendColor = vec4(
+                    analyticBlend.rgb * hudCoverage,
+                    mix(1.0, analyticBlend.a, hudCoverage));
+            } else if ((replacementFont || vectorFont) &&
+                       contourCoverage < 0.999) {
+                BlendColor = vec4(
+                    primitiveBlend().rgb * contourCoverage,
+                    mix(1.0, primitiveBlend().a, contourCoverage));
+            } else if (enhancedParticle && contourCoverage < 0.999) {
+                if (contourStp >= 0.5) {
+                    BlendColor = vec4(
+                        primitiveBlend().rgb * contourCoverage,
+                        mix(1.0, primitiveBlend().a, contourCoverage));
+                } else {
+                    BlendColor = vec4(
+                        vec3(contourCoverage),
+                        1.0 - contourCoverage);
+                }
+            } else if (enhancedEffectContour) {
+                BlendColor = vec4(
+                    primitiveBlend().rgb * contourCoverage,
+                    mix(1.0, primitiveBlend().a, contourCoverage));
+            } else {
+                BlendColor = nearestTexel.a >= 0.5
+                    ? primitiveBlend()
+                    : uBlendOpaque;
+            }
+        }
+        """;
+
+    public static uint Build(GL gl, string vsSrc, string fsSrc, string name)
+    {
+        uint vs = CompileStage(gl, ShaderType.VertexShader, vsSrc, name);
+        uint fs = CompileStage(gl, ShaderType.FragmentShader, fsSrc, name);
+        if (vs == 0 || fs == 0) return 0;
+
+        uint prog = gl.CreateProgram();
+        gl.AttachShader(prog, vs);
+        gl.AttachShader(prog, fs);
+        gl.LinkProgram(prog);
+        gl.GetProgram(prog, ProgramPropertyARB.LinkStatus, out int ok);
+        if (ok == 0)
+        {
+            Console.WriteLine($"[GlBackend] link failed ({name}): {gl.GetProgramInfoLog(prog)}");
+            gl.DeleteProgram(prog);
+            prog = 0;
+        }
+        gl.DeleteShader(vs);
+        gl.DeleteShader(fs);
+        return prog;
+    }
+
+    static string Ascii(string s)
+    {
+        var a = s.ToCharArray();
+        for (int i = 0; i < a.Length; i++) if (a[i] > 0x7F) a[i] = ' ';
+        return new string(a);
+    }
+
+    static uint CompileStage(GL gl, ShaderType type, string src, string name)
+    {
+        uint sh = gl.CreateShader(type);
+        gl.ShaderSource(sh, Ascii(src));
+        gl.CompileShader(sh);
+        gl.GetShader(sh, ShaderParameterName.CompileStatus, out int ok);
+        if (ok == 0)
+        {
+            Console.WriteLine($"[GlBackend] compile failed ({name} {type}) {gl.GetShaderInfoLog(sh)}");
+            gl.DeleteShader(sh);
+            return 0;
+        }
+        return sh;
+    }
+}

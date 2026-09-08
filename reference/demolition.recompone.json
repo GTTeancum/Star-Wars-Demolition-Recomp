@@ -1,0 +1,962 @@
+{
+  "game": {
+    "id": "SLUS-01183",
+    "name": "StarWarsDemolitionPC",
+    "title": "Star Wars: Demolition PC",
+    "output": "generated"
+  },
+  "loose": "../game",
+  "debug": false,
+  "linearSweep": true,
+  "functions": [
+    {
+      "address": "0x80015A70"
+    },
+    {
+      "address": "0x80023AA0"
+    },
+    {
+      "address": "0x80023C5C"
+    },
+    {
+      "address": "0x80023C64"
+    },
+    {
+      "address": "0x80023CCC"
+    },
+    {
+      "address": "0x80023D4C"
+    },
+    {
+      "address": "0x80023D80"
+    },
+    {
+      "address": "0x80023DFC"
+    },
+    {
+      "address": "0x80023E60"
+    },
+    {
+      "address": "0x80023EAC"
+    },
+    {
+      "address": "0x80023F50"
+    },
+    {
+      "address": "0x80023F6C"
+    },
+    {
+      "address": "0x80023FE8"
+    },
+    {
+      "address": "0x8002401C"
+    },
+    {
+      "address": "0x80024064"
+    },
+    {
+      "address": "0x80024080"
+    },
+    {
+      "address": "0x800240FC"
+    },
+    {
+      "address": "0x80024128"
+    },
+    {
+      "address": "0x80024188"
+    },
+    {
+      "address": "0x800241BC"
+    },
+    {
+      "address": "0x800241F0"
+    },
+    {
+      "address": "0x80024298"
+    },
+    {
+      "address": "0x80024328"
+    },
+    {
+      "address": "0x800243A4"
+    },
+    {
+      "address": "0x800243EC"
+    },
+    {
+      "address": "0x8002448C"
+    },
+    {
+      "address": "0x8002451C"
+    },
+    {
+      "address": "0x80024598"
+    },
+    {
+      "address": "0x800245C8"
+    },
+    {
+      "address": "0x80024680"
+    },
+    {
+      "address": "0x800246C0"
+    },
+    {
+      "address": "0x800246F8"
+    },
+    {
+      "address": "0x800247D0"
+    },
+    {
+      "address": "0x8002493C"
+    },
+    {
+      "address": "0x800249C0"
+    },
+    {
+      "address": "0x80024A0C"
+    },
+    {
+      "address": "0x80024B50"
+    },
+    {
+      "address": "0x80025B20"
+    },
+    {
+      "address": "0x80025B5C"
+    },
+    {
+      "address": "0x80025B8C"
+    },
+    {
+      "address": "0x80025E14"
+    },
+    {
+      "address": "0x80025E1C"
+    },
+    {
+      "address": "0x80025E24"
+    },
+    {
+      "address": "0x80025E34"
+    },
+    {
+      "address": "0x80025E3C"
+    },
+    {
+      "address": "0x80025E44"
+    },
+    {
+      "address": "0x80025E4C"
+    },
+    {
+      "address": "0x80025E54"
+    },
+    {
+      "address": "0x80025E6C"
+    },
+    {
+      "address": "0x80025E78"
+    },
+    {
+      "address": "0x80025EA0"
+    },
+    {
+      "address": "0x80025EAC"
+    },
+    {
+      "address": "0x80026904"
+    },
+    {
+      "address": "0x800424E0"
+    },
+    {
+      "address": "0x80042BC0"
+    },
+    {
+      "address": "0x8005A310"
+    }
+  ],
+  "overlays": [
+    {
+      "name": "SHELL_SHELL",
+      "base": "0x80100000",
+      "file": "SHELL\\SHELL.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHELL_LOAD",
+      "base": "0x80100000",
+      "file": "SHELL\\LOAD.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "IMGUI.NET",
+      "base": "0x80100000",
+      "file": "ImGui.NET.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_CLOUDCTY",
+      "base": "0x80100000",
+      "file": "LEVELS\\CLOUDCTY.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_DAGOBAH",
+      "base": "0x80100000",
+      "file": "LEVELS\\DAGOBAH.DLL",
+      "v8Relocate": true,
+      "linearSweep": true,
+      "functions": [
+        {
+          "address": "0x80100200"
+        }
+      ]
+    },
+    {
+      "name": "LEVELS_DESERT",
+      "base": "0x80100000",
+      "file": "LEVELS\\DESERT.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_DETHSTAR",
+      "base": "0x80100000",
+      "file": "LEVELS\\DETHSTAR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true,
+      "functions": [
+        {
+          "address": "0x801003EC"
+        }
+      ]
+    },
+    {
+      "name": "LEVELS_HOTH",
+      "base": "0x80100000",
+      "file": "LEVELS\\HOTH.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_MOSEISLY",
+      "base": "0x80100000",
+      "file": "LEVELS\\MOSEISLY.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_NABOO",
+      "base": "0x80100000",
+      "file": "LEVELS\\NABOO.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "LEVELS_YAVIN4",
+      "base": "0x80100000",
+      "file": "LEVELS\\YAVIN4.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "MICROSOFT.DOTNET.PLATFORMABSTRACTIONS",
+      "base": "0x80100000",
+      "file": "Microsoft.DotNet.PlatformAbstractions.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "MICROSOFT.EXTENSIONS.DEPENDENCYMODEL",
+      "base": "0x80100000",
+      "file": "Microsoft.Extensions.DependencyModel.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "NVORBIS",
+      "base": "0x80100000",
+      "file": "NVorbis.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "OGGVORBISENCODER",
+      "base": "0x80100000",
+      "file": "OggVorbisEncoder.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RECOMPONE.RUNTIME",
+      "base": "0x80100000",
+      "file": "RecompOne.Runtime.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_ARM64_NATIVE_CIMGUI",
+      "base": "0x80100000",
+      "file": "runtimes\\win-arm64\\native\\cimgui.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_ARM64_NATIVE_GLFW3",
+      "base": "0x80100000",
+      "file": "runtimes\\win-arm64\\native\\glfw3.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_ARM64_NATIVE_SDL2",
+      "base": "0x80100000",
+      "file": "runtimes\\win-arm64\\native\\SDL2.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X64_NATIVE_CIMGUI",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x64\\native\\cimgui.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X64_NATIVE_GLFW3",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x64\\native\\glfw3.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X64_NATIVE_SDL2",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x64\\native\\SDL2.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X86_NATIVE_CIMGUI",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x86\\native\\cimgui.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X86_NATIVE_GLFW3",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x86\\native\\glfw3.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "RUNTIMES_WIN_X86_NATIVE_SDL2",
+      "base": "0x80100000",
+      "file": "runtimes\\win-x86\\native\\SDL2.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_AAT",
+      "base": "0x80100000",
+      "file": "SHARED\\AAT.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_ATST",
+      "base": "0x80100000",
+      "file": "SHARED\\ATST.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_BOBAJET",
+      "base": "0x80100000",
+      "file": "SHARED\\BOBAJET.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_CLOUDCAR",
+      "base": "0x80100000",
+      "file": "SHARED\\CLOUDCAR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_DSRTSKFF",
+      "base": "0x80100000",
+      "file": "SHARED\\DSRTSKFF.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_LANDSPDR",
+      "base": "0x80100000",
+      "file": "SHARED\\LANDSPDR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_PODRACER",
+      "base": "0x80100000",
+      "file": "SHARED\\PODRACER.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_RANCOR",
+      "base": "0x80100000",
+      "file": "SHARED\\RANCOR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_SITHSPDR",
+      "base": "0x80100000",
+      "file": "SHARED\\SITHSPDR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_SNOWSPDR",
+      "base": "0x80100000",
+      "file": "SHARED\\SNOWSPDR.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_SPDRBIKE",
+      "base": "0x80100000",
+      "file": "SHARED\\SPDRBIKE.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_STAP",
+      "base": "0x80100000",
+      "file": "SHARED\\STAP.DLL",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SHARED_SWOOP",
+      "base": "0x80100000",
+      "file": "SHARED\\SWOOP.DLL",
+      "v8Relocate": true,
+      "linearSweep": true,
+      "functions": [
+        {
+          "address": "0x80100070"
+        }
+      ]
+    },
+    {
+      "name": "SILK.NET.CORE",
+      "base": "0x80100000",
+      "file": "Silk.NET.Core.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.GLFW",
+      "base": "0x80100000",
+      "file": "Silk.NET.GLFW.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.INPUT.COMMON",
+      "base": "0x80100000",
+      "file": "Silk.NET.Input.Common.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.INPUT.EXTENSIONS",
+      "base": "0x80100000",
+      "file": "Silk.NET.Input.Extensions.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.INPUT.GLFW",
+      "base": "0x80100000",
+      "file": "Silk.NET.Input.Glfw.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.MATHS",
+      "base": "0x80100000",
+      "file": "Silk.NET.Maths.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.OPENAL",
+      "base": "0x80100000",
+      "file": "Silk.NET.OpenAL.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.OPENGL",
+      "base": "0x80100000",
+      "file": "Silk.NET.OpenGL.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.OPENGL.EXTENSIONS.IMGUI",
+      "base": "0x80100000",
+      "file": "Silk.NET.OpenGL.Extensions.ImGui.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.SDL",
+      "base": "0x80100000",
+      "file": "Silk.NET.SDL.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.VULKAN",
+      "base": "0x80100000",
+      "file": "Silk.NET.Vulkan.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.VULKAN.EXTENSIONS.KHR",
+      "base": "0x80100000",
+      "file": "Silk.NET.Vulkan.Extensions.KHR.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.WINDOWING.COMMON",
+      "base": "0x80100000",
+      "file": "Silk.NET.Windowing.Common.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "SILK.NET.WINDOWING.GLFW",
+      "base": "0x80100000",
+      "file": "Silk.NET.Windowing.Glfw.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    },
+    {
+      "name": "STARWARSDEMOLITIONPC",
+      "base": "0x80100000",
+      "file": "StarWarsDemolitionPC.dll",
+      "v8Relocate": true,
+      "linearSweep": true
+    }
+  ],
+  "stubs": [],
+  "ignored": [],
+  "patches": [
+    {
+      "overlay": "main",
+      "address": "80023C5C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EnterDemolitionGeometry23C5C",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "80023C5C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.LeaveDemolitionGeometryContinuation",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "80023C64",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EnterDemolitionGeometry23C64",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "80023C64",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.LeaveDemolitionGeometryContinuation",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "80055754",
+      "target": "RecompOne.Runtime.Sdk.LibEtc.VSync",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8001582C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.ServiceDemolitionDrawSyncWait",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8002ABEC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.BeginTerrainRoutePacketWrites",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8002ABEC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EndTerrainRoutePacketWrites",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8002B3B4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.BeginTerrainDetailPacketWrites",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8002B3B4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EndTerrainDetailPacketWrites",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8002BAF4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.BeginTerrainTransitionPacketWrites",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8002BAF4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EndTerrainTransitionPacketWrites",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8002AE60",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TagFirstCoarseTerrainPacket",
+      "mode": "inline",
+      "position": "after"
+    },
+    {
+      "overlay": "main",
+      "address": "8002AEC0",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TagSecondCoarseTerrainPacket",
+      "mode": "inline",
+      "position": "after"
+    },
+    {
+      "overlay": "main",
+      "address": "8002B46C",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TagFirstCoarseTerrainPacket",
+      "mode": "inline",
+      "position": "after"
+    },
+    {
+      "overlay": "main",
+      "address": "8002B4B4",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.TagSecondCoarseTerrainPacket",
+      "mode": "inline",
+      "position": "after"
+    },
+    {
+      "overlay": "main",
+      "address": "80030DEC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.BeginDemolitionObjectRender",
+      "mode": "inline",
+      "position": "before"
+    },
+    {
+      "overlay": "main",
+      "address": "80030DEC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.EndDemolitionObjectRender",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "800350B0",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.WalkDemolitionVisibilityTree",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80034DEC",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.DrawDemolitionVisibilityLeaf",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80035930",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.BeginDemolitionGameplayFrame",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "80035930",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.SubmitDemolitionWorldOrderingTable",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
+      "address": "8005C850",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.DrawSync",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CE44",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.DrawOTag",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CAFC",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.LoadImage",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CB5C",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.StoreImage",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005C9D4",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.ClearImage",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CA64",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.ClearImage",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CBBC",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.MoveImage",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005CEB4",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.PutDrawEnv",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "8005D080",
+      "target": "RecompOne.Runtime.Sdk.LibGpu.PutDispEnv",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80018B60",
+      "target": "RecompOne.Runtime.Sdk.LibCd.WaitForDemolitionSector",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80018B98",
+      "target": "RecompOne.Runtime.Sdk.LibCd.BeginDemolitionFileRead",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "80018EE0",
+      "target": "RecompOne.Runtime.Sdk.LibCd.ReadDemolitionFileBytes",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800190AC",
+      "target": "RecompOne.Runtime.Sdk.LibCd.SeekDemolitionFile",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80058CC4",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdSyncCallback",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80058CE4",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdReadyCallback",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80058D04",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdControl",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80058E40",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdControlF",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80058F74",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdControlB",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800590E4",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdGetSector",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80059934",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdRead",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80059AD0",
+      "target": "RecompOne.Runtime.Sdk.LibCd.CdReadSync",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800569A4",
+      "target": "RecompOne.Runtime.Sdk.LibCdStream.StSetRing",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800569D4",
+      "target": "RecompOne.Runtime.Sdk.LibCdStream.StClearRing",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80056A34",
+      "target": "RecompOne.Runtime.Sdk.LibCdStream.StSetStream",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80053498",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.DemolitionMalloc",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80053510",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.DemolitionFree",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800535C0",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.DemolitionRealloc",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010FBD0",
+      "target": "RecompOne.Runtime.Sdk.LibCdStream.StFreeRing",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010FC80",
+      "target": "RecompOne.Runtime.Sdk.LibCdStream.StGetNext",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "8010F644",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.RunDemolitionShellVlc",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "80110140",
+      "target": "RecompOne.Runtime.Sdk.V8Compat.TranslateOverlayDmaSource",
+      "mode": "pre"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "801122E8",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.WaitDemolitionCardOperation",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "80112FE8",
+      "target": "RecompOne.Runtime.Sdk.V8Compat.WaitCardEvent",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_SHELL",
+      "address": "801130C0",
+      "target": "RecompOne.Runtime.Sdk.V8Compat.WaitCardEvent",
+      "mode": "replace"
+    },
+    {
+      "overlay": "SHELL_LOAD",
+      "address": "80108E74",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.RunDemolitionLoadVlc",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80061404",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadInitDirect",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800612D4",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadStartCom",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800613A0",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadStopCom",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80060F34",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadSetActAlign",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80060EF4",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadSetAct",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "800610A4",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadSetMainMode",
+      "mode": "replace"
+    },
+    {
+      "overlay": "main",
+      "address": "80061204",
+      "target": "RecompOne.Runtime.Sdk.LibPad.PadGetState",
+      "mode": "replace"
+    }
+  ]
+}

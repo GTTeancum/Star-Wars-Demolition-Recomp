@@ -21,6 +21,24 @@ loose files only: no CUE or BIN is opened by the finished executable.
 
 This is intentionally a playability build, not a fidelity-complete port.
 
+## Current handoff status
+
+- The repository is set up to work from `D:\Programming\GitHub\Star-Wars-Demolition-Recomp`.
+- The finished runtime is a loose-file build: `game\StarWarsDemolitionPC.exe`
+  loads data from the prepared `game` directory and does not open the CUE/BIN
+  at runtime.
+- The latest playable-flow validation covered frontend navigation, memory-card
+  access with a fresh blank card, mission loading, gameplay, combat, pause,
+  quit confirmation, and return to the frontend.
+- Memory-card writes no longer freeze in the tested flow; the local prepared
+  data includes a fresh `carda.sav`, with previous test/back-up cards kept
+  beside it for local reference.
+- Completed quality-of-life video work includes FXAA, disabled dithering,
+  perspective-correct texture output, a gameplay widescreen option, and the
+  single-executable publish path.
+- The remaining work is tracked in `TO-DO.MD`; keep that file as the short,
+  numbered source of truth and remove items as they are completed.
+
 ## Prepare the loose files
 
 The CUE is used once, by the preparation tool. It creates `game` with the ISO
@@ -69,9 +87,11 @@ dotnet run --project reference\generated\StarWarsDemolitionPC.csproj `
 - Visibility defaults to 64 nearby objects per frame, covering the complete
   measured Tatooine spawn set. Set `RECOMPONE_DEMOLITION_DRAW_BUDGET` from 1
   through 4096 to trade speed for scene density in unusually busy arenas.
-- The frontend and HUD keep their native 4:3 layout; full terrain fidelity and
-  longer-range world visibility remain tracked separately from widescreen edge
-  coverage.
+- Ordinary 2D frontend and HUD layouts keep their native 4:3 framing. Gameplay
+  widescreen is active, but edge coverage and the 3D Jabba's Palace frontend
+  still need dedicated widescreen work.
+- Full terrain fidelity, longer-range world visibility, and texture-pack
+  support remain open in `TO-DO.MD`.
 
 Generated C#, build products, captures, and retail media remain local and are
 not tracked.

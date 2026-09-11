@@ -1618,6 +1618,17 @@ public static class V82Compat
     static uint CameraYOffset => IsDemolition ? 0xEB0u : 0xF40u;
     static uint CameraZOffset => IsDemolition ? 0xEB4u : 0xF44u;
     static uint TerrainFocalOffset => IsDemolition ? 0xD00u : 0xDB4u;
+    // The loaded COLS atmosphere words sit in the same shifted block, at the
+    // same -0xB4 delta the terrain focal length takes. Reading the V8:2
+    // addresses under Demolition lands on zeroes, and a fog colour of pure
+    // black is what turned the far arena into a black band along the horizon:
+    // the Dreamcast table fade mixes every distant surface toward it.
+    // Confirmed against RAM - gp+0xCF0 holds 63 3C 32, the arena's own
+    // backdrop colour, and the two words after it continue the authored ramp.
+    static uint ColsFogOffset => IsDemolition ? 0xCF0u : 0xDA4u;
+    static uint ColsRampHighOffset => IsDemolition ? 0xCF8u : 0xDACu;
+    static uint ColsRampLowOffset => IsDemolition ? 0xD50u : 0xE04u;
+    static uint ColsSourceOffset => IsDemolition ? 0xD28u : 0xDDCu;
     static uint PacketCursorOffset => IsDemolition ? 0x5E8u : 0x610u;
     static uint PrimitiveHighWaterOffset => IsDemolition ? 0xC48u : 0xCE4u;
     static uint PrimitiveLimitOffset => IsDemolition ? 0xC3Cu : 0xCDCu;
@@ -4243,16 +4254,16 @@ public static class V82Compat
                 $"outer={outerDetailPlane}->0 " +
                 "dreamcast-view=80 " +
                 "dreamcast-step=4 dreamcast-material=top-left " +
-                $"cols-ramp-low={m.ReadU8(c.GP + 0xE04u)}," +
-                $"{m.ReadU8(c.GP + 0xE05u)}," +
-                $"{m.ReadU8(c.GP + 0xE06u)} " +
-                $"cols-ramp-high={m.ReadU8(c.GP + 0xDACu)}," +
-                $"{m.ReadU8(c.GP + 0xDADu)}," +
-                $"{m.ReadU8(c.GP + 0xDAEu)} " +
-                $"cols-fog={m.ReadU8(c.GP + 0xDA4u)}," +
-                $"{m.ReadU8(c.GP + 0xDA5u)}," +
-                $"{m.ReadU8(c.GP + 0xDA6u)} " +
-                $"cols-source=0x{m.ReadU32(c.GP + 0xDDCu):X8} " +
+                $"cols-ramp-low={m.ReadU8(c.GP + ColsRampLowOffset)}," +
+                $"{m.ReadU8(c.GP + ColsRampLowOffset + 1u)}," +
+                $"{m.ReadU8(c.GP + ColsRampLowOffset + 2u)} " +
+                $"cols-ramp-high={m.ReadU8(c.GP + ColsRampHighOffset)}," +
+                $"{m.ReadU8(c.GP + ColsRampHighOffset + 1u)}," +
+                $"{m.ReadU8(c.GP + ColsRampHighOffset + 2u)} " +
+                $"cols-fog={m.ReadU8(c.GP + ColsFogOffset)}," +
+                $"{m.ReadU8(c.GP + ColsFogOffset + 1u)}," +
+                $"{m.ReadU8(c.GP + ColsFogOffset + 2u)} " +
+                $"cols-source=0x{m.ReadU32(c.GP + ColsSourceOffset):X8} " +
                 $"samples={sample} " +
                 $"tick={GpuHle.DebugGameplayTick}");
         }
@@ -4541,9 +4552,9 @@ public static class V82Compat
         // gp+DA4. Feed the shared Enhanced renderer from the loaded arena
         // data instead of inferring atmosphere from a backdrop polygon.
         GpuHle.SetDreamcastFogColor(
-            m.ReadU8(c.GP + 0xDA4u),
-            m.ReadU8(c.GP + 0xDA5u),
-            m.ReadU8(c.GP + 0xDA6u));
+            m.ReadU8(c.GP + ColsFogOffset),
+            m.ReadU8(c.GP + ColsFogOffset + 1u),
+            m.ReadU8(c.GP + ColsFogOffset + 2u));
         GpuHle.ClearTerrainRouteColorRamp();
         GpuHle.BeginTerrainRoutePacketWrites();
         Gte.BeginTerrainProjection();

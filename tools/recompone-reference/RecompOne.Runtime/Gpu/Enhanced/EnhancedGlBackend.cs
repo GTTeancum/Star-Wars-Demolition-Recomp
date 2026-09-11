@@ -950,6 +950,19 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
 
     public void SetDreamcastFogColor(byte red, byte green, byte blue)
     {
+        // A pure black atmosphere is not something an arena authors; it is what
+        // reading the COLS word at the wrong address produces. Taking it at
+        // face value fades every distant surface to black and lays a hard band
+        // along the horizon. Decline it and leave the backdrop-harvested colour
+        // in place, which is the correct horizon for the arena either way.
+        if (red == 0 && green == 0 && blue == 0)
+        {
+            if (TraceFog)
+                Console.Error.WriteLine(
+                    "[EnhancedDreamcastFog] ignored all-black COLS word");
+            return;
+        }
+
         float r = red / 255f;
         float g = green / 255f;
         float b = blue / 255f;

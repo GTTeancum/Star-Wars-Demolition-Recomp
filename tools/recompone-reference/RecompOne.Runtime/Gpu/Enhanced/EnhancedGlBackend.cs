@@ -4533,7 +4533,31 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             bool lowerLeftHud =
                 (!smallText && localCenter < target.W / 3f) ||
                 locationCaption;
-            if (topHud || lowerLeftHud)
+            // Demolition splits its top HUD across both corners: the radar
+            // occupies native x 16..68 and the damage ring x 191..308, and
+            // both sit entirely within y 16..73. Anchoring every top tile left,
+            // as V8:2 needs, drags the ring inboard and leaves the right margin
+            // empty. Send that one widget to the right edge instead, splitting
+            // at 40% of the window - inside the authored 68..191 gap, so
+            // neither widget is cut, which is the hazard the note above
+            // records.
+            //
+            // The y bound matters as much as the x one: the targeting reticle
+            // is world-tracking, is drawn a little below the authored HUD band,
+            // and is still shallow enough to satisfy topHud. Restricting this
+            // to the authored band leaves the reticle on exactly the treatment
+            // it had before, so it keeps following its target.
+            // 0.31 of 240 is 74, just past the authored band's last row at 73.
+            // Requiring the whole tile inside it, not merely its top edge,
+            // keeps a reticle that happens to ride high out of the corner.
+            bool demolitionTopRightHud =
+                IsDemolition && topHud &&
+                localTop >= 0f &&
+                localTop + r.H <= target.H * 0.31f &&
+                localCenter > target.W * 0.4f;
+            if (demolitionTopRightHud)
+                anchor = target.Margin;
+            else if (topHud || lowerLeftHud)
                 anchor = -target.Margin;
         }
         if (TriangleProbe is { } rectangleProbe &&

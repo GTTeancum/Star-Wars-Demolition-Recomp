@@ -35,15 +35,37 @@ at the `gameplay_settled` stage, 1920x1080, Enhanced preset.
    - Together those cut backdrop visible through missing terrain from 57,446
      pixels to 36,292, with frame pacing unchanged.
    - OPEN: about 36,000 pixels of edge holes remain, concentrated in a wedge at
-     the near left. `satX` (packed X beyond the representable +/-1023) rises
-     from 303 to 415 with the wider walk, so the remaining loss is most likely
-     near off-axis vertices saturating the packed projection. Row padding,
-     omnidirectional traversal and larger headroom were each measured and
-     change nothing.
+     the near left, and only at the spawn camera - driving into the settlement
+     and looking around shows clean, fully covered edges. Measured and ruled
+     out, each a no-op on the hole area: row-cell padding at 16, omnidirectional
+     traversal, headroom at 24/48/120, and falling back to the unclamped
+     projection for NCLIP on triangles the +/-1024 clamp damages (87 triangles
+     per frame took that path and not one pixel changed).
    - OPEN: skybox seams not yet investigated.
    - OPEN: 3D Jabba's Palace frontend still renders at 4:3. Not started.
 
-3. WISHLIST: Add texture-pack support using textures sourced from the Dreamcast
+3. The 2D overlay layer does not draw during gameplay. Neither the HUD (radar,
+   armour/health, weapon panel) nor the pause, objectives and quit-confirmation
+   overlays appear, although the world behind them freezes correctly and the
+   game does reach those states.
+   - This is upstream of the renderer, not a renderer bug: the software oracle
+     (`RECOMPONE_ORIGINAL_RENDERER_ORACLE=1` with
+     `RECOMPONE_GRAPHICS_PRESET=Original`) drops them identically.
+   - `RECOMPONE_TRACE_HUD=1` shows what the engine actually submits where the
+     HUD belongs: untextured 1x1 and 2x2 rectangles, no panels and no art. So
+     the HUD build path is not running, rather than being drawn and lost.
+   - `RECOMPONE_TRACE_MODAL_RECTS=1` does show 700 modal glyph rectangles per
+     pause, so the pause text is built and reaches the renderer. Those two
+     findings disagree and need reconciling; start there.
+   - Reproduce with `tools\recompone-demolition\fixtures\return.inputs`-style
+     input: reach `gameplay_settled`, press START, then capture a burst on the
+     `pause_menu` stage.
+   - Not reproduced: a report of the SELECT ARENA screen rendering black behind
+     its text. A cold-boot replay of that screen, 260 frames of cycling the
+     selector, and backing out and returning all render it correctly, so the
+     path that produces it is still unknown.
+
+4. WISHLIST: Add texture-pack support using textures sourced from the Dreamcast
    version. The loader already exists and looks for `game\textures\2x`; every
    run reports 0% coverage because no pack has been produced.
 

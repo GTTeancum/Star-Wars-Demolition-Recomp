@@ -26,3 +26,13 @@ The route through the frontend depends on the memory card in `game`: with a
 saved profile present the game goes straight from the main menu to the arena
 selector, and with a blank card it stops at Player Profiles first. The latched
 accept pulses in the main-menu block cover both.
+
+## The other fixtures
+
+`gameplay_desert_drive.inputs` continues past the spawn pocket and swings the
+camera through an arc, which is what distinguishes a screen-locked edge defect
+from the arena boundary.
+
+`pause_and_quit.inputs` reaches settled gameplay and opens the pause menu. It is
+the reproduction for the missing 2D overlay layer recorded in `TO-DO.MD`; its
+pause-menu navigation does not yet reach the quit confirmation.

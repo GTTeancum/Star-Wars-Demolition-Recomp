@@ -1,0 +1,43 @@
+# Boot -> Desert gameplay, deterministic.
+# Anchored on the runtime's own stage signals so it survives load-time drift.
+24+8=START
+72+8=START
+144+8=START
+
+# MAIN MENU -> (profile, if the card has none) -> SELECT ARENA.
+# Latched pulses keep firing while the visit count stays 1, which walks the
+# accept-only screens between the menu and the arena selector.
+[after:v82_options@1]
+10+8=CROSS
+45+8=CROSS
+80+8=CROSS
+115+8=CROSS
+150+8=CROSS
+185+8=CROSS
+
+# Arena selector settles its 3D turntable before accepting.
+[after:demolition_select_arena@1]
+300+8=CROSS
+
+[after:demolition_choose_contestant@1]
+300+8=CROSS
+
+[after:demolition_choose_opponents@1]
+300+8=CROSS
+
+# Loading cards and the pre-match briefing alternate START/accept.
+[after:demolition_shell_frontend_exit@1]
+10+8=START
+40+8=CROSS
+70+8=START
+100+8=CROSS
+130+8=START
+160+8=CROSS
+
+# Nudge forward so the camera settles behind a moving vehicle.
+[after:gameplay@1]
+20+400=UP
+430+260=UP,LEFT
+700+260=UP,LEFT
+980+300=UP
+1290+240=UP,RIGHT

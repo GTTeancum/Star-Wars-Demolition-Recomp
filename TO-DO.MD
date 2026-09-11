@@ -39,6 +39,13 @@ none of the work below moved it outside that band.
 6. Demolition's right-hand HUD widget anchors to the right margin instead of
    being dragged inboard with the radar.
 
+7. Fog falloff. The shader's density was V8:2's 0.275390625; Demolition's
+   installer at 0x8C058A20 passes 0.252f, which the PVR register's 8.8 encoding
+   truncates to 0.251953125. It is passed as `uFogDensity` now. Demolition never
+   writes the 128-entry `FOG_TABLE` - every call to the register helper at
+   0x8C0CCA28 uses an offset below 0x200 - so the reconstructed table needs no
+   per-game variant.
+
 ## Open
 
 1. Far terrain is untextured beyond roughly 6000 camera units - textured
@@ -62,15 +69,7 @@ none of the work below moved it outside that band.
    registrations at recycled packet addresses, so it was applying unrelated
    cells' colours.
 
-2. DONE. The density was V8:2's 0.275390625; Demolition's installer at
-   0x8C058A20 passes 0.252f, which the PVR register's 8.8 encoding truncates to
-   0.251953125. Passed as `uFogDensity` now. Demolition never writes the
-   128-entry `FOG_TABLE` - every call to the register helper at 0x8C0CCA28 uses
-   an offset below 0x200 - so the reconstructed table needs no per-game variant.
-   The clamp registers come from a per-render-state struct at +0x88 and +0x8C
-   rather than constants, and are still not modelled.
-
-3. The 3D Jabba's Palace frontend still renders at 4:3. Attempted and reverted.
+2. The 3D Jabba's Palace frontend still renders at 4:3. Attempted and reverted.
 
    Widening it works in the sense that matters: gating the expanded framebuffer
    on a hold flag raised by the selectors' own per-frame draw callback (state 16
@@ -85,17 +84,18 @@ none of the work below moved it outside that band.
    present size the hold compares against, so it starts holding the wrong
    buffer. Handle that before re-attempting; do not stack a fix on top of it.
 
-4. Skybox seams. Not investigated.
+3. Skybox seams. Not investigated.
 
-5. About 200 pixels of backdrop still show through the right gameplay margin,
+4. About 200 pixels of backdrop still show through the right gameplay margin,
    and 17 through the left. Small enough that the remaining cause has not been
-   identified.
+   identified. The PVR fog clamp registers are also still unmodelled; they come
+   from a per-render-state struct at +0x88 and +0x8C rather than constants.
 
-7. The targeting reticle may sit slightly off its target. Pre-existing and
+5. The targeting reticle may sit slightly off its target. Pre-existing and
    unverified - it was left on exactly the treatment it had before the HUD
    anchoring change, so it is not a regression from that work.
 
-8. WISHLIST: texture-pack support using Dreamcast textures. The loader exists
+6. WISHLIST: texture-pack support using Dreamcast textures. The loader exists
    and looks for `game\textures\2x`; every run reports 0% coverage because no
    pack has been produced. The disc is now readable via
    `tools\recompone-demolition\dreamcast\gdi.py`.

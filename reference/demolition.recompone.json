@@ -582,6 +582,18 @@
     },
     {
       "overlay": "main",
+      "address": "8001CC78",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.ExpandTerrainFrustum",
+      "mode": "pre"
+    },
+    {
+      "overlay": "main",
+      "address": "8001CC78",
+      "target": "RecompOne.Runtime.Sdk.V82Compat.RestoreTerrainFrustum",
+      "mode": "post"
+    },
+    {
+      "overlay": "main",
       "address": "800155C0",
       "target": "RecompOne.Runtime.Sdk.V82Compat.PrepareExpandedPrimitiveBuffer",
       "mode": "pre"

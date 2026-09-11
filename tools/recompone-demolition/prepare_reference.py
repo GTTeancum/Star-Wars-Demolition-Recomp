@@ -464,6 +464,31 @@ PROVEN_PATCHES = [
         "mode": "pre",
     },
     {
+        # 0x8001CC78 is the terrain scan converter's entry wrapper, called once
+        # per frame by the world renderer at 0x80035930. Its per-cell
+        # visibility test reads the same gp-relative camera width the object
+        # frustum uses, so without this the walker keeps testing terrain
+        # against the authored 4:3 width while the viewport is 16:9 and
+        # discards cells that are on screen. Padding the row spans cannot
+        # recover those: the row is chosen before its span is widened.
+        "overlay": "main",
+        "address": "8001CC78",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "ExpandTerrainFrustum"
+        ),
+        "mode": "pre",
+    },
+    {
+        "overlay": "main",
+        "address": "8001CC78",
+        "target": (
+            "RecompOne.Runtime.Sdk.V82Compat."
+            "RestoreTerrainFrustum"
+        ),
+        "mode": "post",
+    },
+    {
         # Demolition's double-buffer flip is the later shared-engine version
         # of V8:2 func_80014B3C. Retain its accounting, then move the next
         # frame into the reserved loose-port packet arena so the wider terrain

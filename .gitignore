@@ -23,3 +23,6 @@ cardb.sav
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Reference discs are user-supplied retail media
+/Dreamcast disc/

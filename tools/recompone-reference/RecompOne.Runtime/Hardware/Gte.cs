@@ -179,44 +179,13 @@ public static class Gte
     // reaches the edges (11.02% against 10.69%, inside run-to-run noise) or to
     // packed-coordinate saturation. Do not widen this scope again without a
     // reproduction that it demonstrably fixes.
-    //
-    // Demolition wants none of it. Its terrain grid is far denser than V8:2's,
-    // so its polygons are already small in packed space, and the extra
-    // compression headroom applies pushes their NCLIP areas under one unit -
-    // the same rounding cliff TerrainPreciseNclip exists for. The primitives
-    // then cull as backfacing and open a sawtooth of triangular holes along
-    // the inner edge, which is worse than the straddle loss the headroom
-    // prevents. Measured on the Desert fixture at the settled gameplay stage,
-    // backdrop visible through missing terrain: 55,217 pixels at 48, 55,051 at
-    // 24 and 36,385 at 0. Above 48 it collapses instead of recovering - at 120
-    // the packed window is too coarse to keep cells distinct and the right
-    // margin loses half its terrain.
-    static readonly int? WideClipHeadroomOverride =
+    static readonly int WideClipHeadroom =
         int.TryParse(
             Environment.GetEnvironmentVariable(
                 "RECOMPONE_V82_WIDE_CLIP_HEADROOM"),
             out int wideClipHeadroom)
             ? Math.Clamp(wideClipHeadroom, 0, 120)
-            : null;
-    static int _wideClipHeadroomCache = -1;
-    static int WideClipHeadroom
-    {
-        get
-        {
-            if (_wideClipHeadroomCache >= 0)
-                return _wideClipHeadroomCache;
-            if (WideClipHeadroomOverride is int over)
-                return _wideClipHeadroomCache = over;
-            // The title is read from the executable during boot, long before
-            // any gameplay projection. Resolving lazily keeps this a single
-            // cached integer in the per-vertex path either way.
-            string title = Runtime.GameTitle;
-            if (title.Length == 0)
-                return 48;
-            return _wideClipHeadroomCache =
-                title.Contains("Demolition", StringComparison.Ordinal) ? 0 : 48;
-        }
-    }
+            : 48;
     static readonly bool TerrainPreciseNclip =
         Environment.GetEnvironmentVariable(
             "RECOMPONE_V82_TERRAIN_PRECISE_NCLIP") != "0";

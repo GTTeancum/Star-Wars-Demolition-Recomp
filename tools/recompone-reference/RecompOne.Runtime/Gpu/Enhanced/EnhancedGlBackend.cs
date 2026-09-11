@@ -1675,18 +1675,17 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         float projectionCenterY = v.ProjectionCenterY;
         float projectionScale = v.ProjectionScale;
         GlDisplayRt? projectionTarget = targetOverride ?? _kTarget;
-        if (!uiTexture &&
-            GpuHle.GameplayActive &&
-            projectionTarget is { Margin: > 0 } wideTarget)
-        {
-            // Preserve the native vertical FOV and projection scale. The
-            // enhanced target owns real pixels on both sides of the authored
-            // 4:3 viewport, so centering the recovered projection in that
-            // target exposes additional horizontal view instead of stretching
-            // or vertically cropping the original camera.
-            screenX += wideTarget.Margin;
-            projectionCenterX += wideTarget.Margin;
-        }
+        // Centering the recovered projection in the widened target is the
+        // shader's job and it already does it: uPosBias is (Margin - rt.X),
+        // which maps native rt.X - Margin to texel 0 for every primitive,
+        // world and UI alike. Adding Margin here as well shifted all world
+        // geometry right by exactly one margin - 54 native pixels at 16:9 -
+        // so the authored camera centre landed at +0.25 NDC instead of 0.
+        // That is why the right side ran off the frame while the left margin
+        // was starved of geometry and showed backdrop through it.
+        //
+        // UI rectangles never reached this block, so they were already placed
+        // by uPosBias alone and stay where they are.
         return new GlVertex
         {
             X = screenX, Y = screenY,

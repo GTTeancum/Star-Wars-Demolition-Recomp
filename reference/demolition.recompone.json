@@ -176,6 +176,12 @@
     },
     {
       "address": "0x8005A310"
+    },
+    {
+      "address": "0x80023CDC"
+    },
+    {
+      "address": "0x80024A9C"
     }
   ],
   "overlays": [
@@ -184,14 +190,30 @@
       "base": "0x80100000",
       "file": "SHELL\\SHELL.DLL",
       "v8Relocate": true,
-      "linearSweep": true
+      "linearSweep": true,
+      "functions": [
+        {
+          "address": "0x8010F7E0"
+        },
+        {
+          "address": "0x8010F750"
+        }
+      ]
     },
     {
       "name": "SHELL_LOAD",
       "base": "0x80100000",
       "file": "SHELL\\LOAD.DLL",
       "v8Relocate": true,
-      "linearSweep": true
+      "linearSweep": true,
+      "functions": [
+        {
+          "address": "0x80109010"
+        },
+        {
+          "address": "0x80108F80"
+        }
+      ]
     },
     {
       "name": "LEVELS_CLOUDCTY",

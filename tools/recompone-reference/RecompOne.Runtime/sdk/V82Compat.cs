@@ -3244,9 +3244,18 @@ public static class V82Compat
 
         double aspectScale =
             (double)GpuHle.WideAspect / GpuHle.BaseAspect;
+        // Demolition needs more than the exact aspect ratio. Its walker drops
+        // a cell whose centre fails the test even when part of that cell is on
+        // screen, so a frustum widened by exactly 4:3 -> 16:9 still stops one
+        // cell short along both outer edges. Overshooting costs nothing
+        // measurable - emitted terrain cells rise from 578 to 738 and frame
+        // pacing is 50 deadline misses per 60 frames either way - and closes
+        //13% of the backdrop still visible through the gameplay edges.
         double scale = TerrainFrustumScaleOverride >= 1d
             ? TerrainFrustumScaleOverride
-            : aspectScale;
+            : IsDemolition
+                ? Math.Max(aspectScale, 2d)
+                : aspectScale;
         uint expandedWidth = checked((uint)Math.Clamp(
             Math.Round(
                 nativeWidth * scale,
@@ -8437,10 +8446,16 @@ public static class V82Compat
     // table at the stable end of the world renderer. This consumes the exact
     // native packet chain rooted at gp+C40 + 0x3FFC; it does not synthesize or
     // replace any arena geometry.
+    static readonly bool SubmitWorldOrderingTable =
+        Environment.GetEnvironmentVariable(
+            "RECOMPONE_DEMOLITION_SUBMIT_WORLD_OT") != "0";
+
     public static void SubmitDemolitionWorldOrderingTable(
         CpuContext c,
         IMemory m)
     {
+        if (!SubmitWorldOrderingTable)
+            return;
         var caller = c.Snapshot();
         try
         {

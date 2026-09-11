@@ -82,12 +82,25 @@ EXTRA_MAIN_FUNCTIONS = [
     "0x800424E0",
     "0x80042BC0",
     "0x8005A310",
+    # Reached only through a computed target the call-discovery pass resolves
+    # to a literal but never queues as a function, so the recompiled code holds
+    # a Dispatcher.Call to an address with nothing behind it and the run dies
+    # with "unmapped call" the first time that primitive kind is drawn.
+    # 0x80024A9C is the one the pause-to-quit route hits inside the model
+    # renderer at 0x80030DEC.
+    "0x80023CDC",
+    "0x80024A9C",
 ]
 
 EXTRA_OVERLAY_FUNCTIONS: dict[str, list[str]] = {
     "LEVELS_DAGOBAH": ["0x80100200"],
     "LEVELS_DETHSTAR": ["0x801003EC"],
     "SHARED_SWOOP": ["0x80100070"],
+    # Same unmapped-call class as the extra main entries above, in the two
+    # shell overlays that own the frontend. These are what the arena and
+    # loading screens reach.
+    "SHELL_LOAD": ["0x80109010", "0x80108F80"],
+    "SHELL_SHELL": ["0x8010F7E0", "0x8010F750"],
 }
 
 PROVEN_PATCHES = [

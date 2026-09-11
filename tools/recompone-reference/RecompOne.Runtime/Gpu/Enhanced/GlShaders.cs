@@ -264,6 +264,7 @@ internal static class GlShaders
         uniform vec3  uFogColor;
         uniform int   uFogColorValid;
         uniform int   uDreamcastFogActive;
+        uniform float uFogDensity;
         uniform int   uPerspectiveCorrectTextures;
         uniform int   uPerspectiveCorrectColors;
         uniform int   uTrueColor;
@@ -531,9 +532,12 @@ internal static class GlShaders
             // The converted levels retain a 256:1 PS1-to-Dreamcast world
             // scale. Dreamcast projection uses a 512-pixel focal scalar and
             // 0x8C101DC0 submits reciprocal PVR depth as
-            // 0.9 * 512 / viewDepth. The PVR density register receives
-            // 0.276f, truncated by 0x8C094640 to mantissa 141 / exponent -2
-            // = 0.275390625, and scales that submitted reciprocal depth.
+            // 0.9 * 512 / viewDepth. The PVR density register scales that
+            // submitted reciprocal depth, and its value is game-specific, so
+            // it arrives as uFogDensity. V8:2 passes 0.276f, which the
+            // register's 8.8 encoding truncates to mantissa 141 / exponent -2
+            // = 0.275390625. Demolition's installer at 0x8C058A20 passes
+            // 0.252f instead, encoded to 0x81FE = 0.251953125.
             float dreamcastDepth = max(ps1Depth / 256.0, 0.000001);
             // The retail Dreamcast build stores a 512.0 projection scale at
             // 0x8c2747cc.  Its transform path multiplies reciprocal view Z by
@@ -542,7 +546,7 @@ internal static class GlShaders
             // 320.0/240.0 constants are the screen centre, not projection.
             float pvrReciprocalDepth = 460.8 / dreamcastDepth;
             float z = clamp(
-                0.275390625 * pvrReciprocalDepth, 1.0, 255.9999);
+                uFogDensity * pvrReciprocalDepth, 1.0, 255.9999);
             float exponent = floor(log2(z));
             float m = z * 16.0 / exp2(exponent) - 16.0;
             float tableIndex = floor(m) + exponent * 16.0;

@@ -863,7 +863,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     int _uTexWindow, _uBlend, _uBlendOpaque, _uSetMask, _uCheckMask, _uPosBias, _uFbInv;
     int _uTextureSmoothing, _uTextureMipmaps, _uAnisotropy;
     int _uEnhancedShadows, _uEnhancedParticles, _uEnhancedFog;
-    int _uFogColor, _uFogColorValid, _uDreamcastFogActive;
+    int _uFogColor, _uFogColorValid, _uDreamcastFogActive, _uFogDensity;
     // The arena's own horizon colour, harvested from the full-display backdrop
     // quad the engine draws behind every gameplay frame. Distance fog has to
     // converge on this, not on a synthetic haze, or far geometry never joins
@@ -1138,6 +1138,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         _uFogColorValid = _gl.GetUniformLocation(_progPrim, "uFogColorValid");
         _uDreamcastFogActive =
             _gl.GetUniformLocation(_progPrim, "uDreamcastFogActive");
+        _uFogDensity = _gl.GetUniformLocation(_progPrim, "uFogDensity");
         _uPerspectiveCorrectTextures =
             _gl.GetUniformLocation(_progPrim, "uPerspectiveCorrectTextures");
         _uPerspectiveCorrectColors =
@@ -4995,6 +4996,14 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             _gl.Uniform1(
                 _uDreamcastFogActive,
                 _dreamcastFogActive ? 1 : 0);
+            // The value each game hands the PVR density register, after the
+            // register's 8.8 encoding truncates it. Read out of the Dreamcast
+            // builds: Demolition's arena installer at 0x8C058A20 passes 0.252f,
+            // which encodes to 0x81FE; V8:2 passes 0.276f, encoding to
+            // mantissa 141 / exponent -2.
+            _gl.Uniform1(
+                _uFogDensity,
+                IsDemolition ? 0.251953125f : 0.275390625f);
             _gl.Uniform1(
                 _uPerspectiveCorrectTextures,
                 ConfigManager.View.PerspectiveCorrectTextures ? 1 : 0);

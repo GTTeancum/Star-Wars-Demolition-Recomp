@@ -105,6 +105,28 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     static readonly bool TraceTerrainFrames =
         Environment.GetEnvironmentVariable(
             "RECOMPONE_V82_TRACE_TERRAIN_FRAME") == "1";
+    // Distant terrain renders as a black silhouette against the arena sky.
+    // Coverage tinting proves the walker emits those polygons, so the colour
+    // has to be arriving dark. Native route vertices carry the authored
+    // terrain lighting index as grayscale, which means "black" and "unlit" are
+    // the same submitted value - bucketing submitted luminance by view depth
+    // is what separates an engine-side shade ramp that bottoms out from a
+    // conversion that loses the index. TraceTerrainShade covers only the
+    // Dreamcast coarse-cell path, which Demolition never enters.
+    static readonly bool TraceTerrainDepthShade =
+        Environment.GetEnvironmentVariable(
+            "RECOMPONE_V82_TRACE_TERRAIN_DEPTH_SHADE") == "1";
+    static readonly float[] TerrainDepthShadeEdges =
+        [1000, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 20000,
+         float.PositiveInfinity];
+    static readonly long[] TerrainDepthShadeCount =
+        new long[TerrainDepthShadeEdges.Length];
+    static readonly long[] TerrainDepthShadeLuma =
+        new long[TerrainDepthShadeEdges.Length];
+    static readonly long[] TerrainDepthShadeBlack =
+        new long[TerrainDepthShadeEdges.Length];
+    static readonly long[] TerrainDepthShadeTextured =
+        new long[TerrainDepthShadeEdges.Length];
     static readonly bool TraceFog =
         Environment.GetEnvironmentVariable(
             "RECOMPONE_TRACE_FOG") == "1";
@@ -2273,6 +2295,11 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         using var timing = TracePerformanceDetail
             ? new DrawTriTimingScope(this)
             : default;
+        // V8:2's coarse reconstruction rebuilds whole quads from paired halves
+        // at a fixed 0x1C packet stride and an authored XTIN diagonal. Demolition
+        // pairs its halves differently, so reusing that path here folds the far
+        // arena into floating ribbons. Its cell textures are still tagged, and
+        // DemolitionFarTerrainTint below uses them without touching geometry.
         GpuHle.CoarseTerrainPacket coarseTerrain = default;
         bool hasCoarseTerrain =
             !IsDemolition &&
@@ -2530,6 +2557,86 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
 
         _traceCoarseTerrainUnpairedHalves++;
         DrawTexturedCoarseTerrainHalfImmediate(a, b, c, flags, coarse);
+    }
+
+    // Demolition textures terrain only out to roughly 6000 camera units. Past
+    // that its route and transition writers emit flat packets whose vertex RGB
+    // is the authored terrain lighting index stored as grayscale, exactly as
+    // the native route vertices documented on GpuHle.TryDecodeTerrainRouteColor
+    // do. With a texture bound that index is a modulator and the sand reads
+    // correctly; with no texture bound it becomes the final colour, and a
+    // ~66/255 grey against a lit sunset is the black horizon band.
+    //
+    // The cell textures for those packets are already tagged by the coarse and
+    // transition hooks, so each one knows the average colour of the tile it
+    // would have sampled. Modulating the authored index by that average
+    // reproduces the PS1's texel * colour / 128 contract without rebuilding the
+    // quad, which keeps the native silhouette and packet order intact.
+    static readonly bool DemolitionFarTerrainTint =
+        Environment.GetEnvironmentVariable(
+            "RECOMPONE_DEMOLITION_FAR_TERRAIN_TINT") != "0";
+
+    internal static long TerrainTintApplied;
+    internal static long TerrainTintNoPacket;
+    internal static long TerrainTintInvalid;
+    internal static long TerrainTintSkippedTile;
+    internal static long TerrainTintZeroAverage;
+
+    static void ApplyDemolitionFarTerrainTint(
+        ref HleVertex a, ref HleVertex b, ref HleVertex c, in PrimFlags f)
+    {
+        if (!DemolitionFarTerrainTint ||
+            !IsDemolition ||
+            f.Textured ||
+            f.Material != HleMaterialKind.TerrainRoute)
+            return;
+
+        GpuHle.TerrainCellTextures textures;
+        if (GpuHle.TryGetCoarseTerrainPacket(
+                f.PacketAddress, out var coarse))
+            textures = coarse.Textures;
+        else if (GpuHle.TryGetTerrainTransitionPacket(
+                     f.PacketAddress, out var transition))
+            textures = transition.Textures;
+        else
+        {
+            TerrainTintNoPacket++;
+            return;
+        }
+        if (!textures.Valid)
+        {
+            TerrainTintInvalid++;
+            return;
+        }
+
+        GpuHle.TerrainTextureDescriptor tile = textures.Get(0, 0);
+        if ((tile.Flags & 1) != 0)
+        {
+            TerrainTintSkippedTile++;
+            return;
+        }
+        // A tile whose decode produced no colour would darken the cell to
+        // black, which is the defect this exists to remove.
+        if (tile.AverageR == 0 && tile.AverageG == 0 && tile.AverageB == 0)
+        {
+            TerrainTintZeroAverage++;
+            return;
+        }
+        TerrainTintApplied++;
+
+        Tint(ref a, tile);
+        Tint(ref b, tile);
+        Tint(ref c, tile);
+
+        static void Tint(
+            ref HleVertex v, in GpuHle.TerrainTextureDescriptor tile)
+        {
+            // The authored index is grayscale, so any channel carries it.
+            int shade = v.R;
+            v.R = (byte)Math.Min(255, tile.AverageR * shade / 128);
+            v.G = (byte)Math.Min(255, tile.AverageG * shade / 128);
+            v.B = (byte)Math.Min(255, tile.AverageB * shade / 128);
+        }
     }
 
     void DrawTexturedCoarseTerrainSquare(
@@ -3491,6 +3598,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             ExpandBackdropEdge(ref drawB, backdropTarget!);
             ExpandBackdropEdge(ref drawC, backdropTarget!);
         }
+        ApplyDemolitionFarTerrainTint(ref drawA, ref drawB, ref drawC, f);
         var va = V(drawA, f, perspectiveCorrect, screenSpacePrimitive,
             DepthOf(a, f.OtIndex, coherentRasterDepth), deferredTarget);
         va.BaryX = 1f;
@@ -3544,6 +3652,29 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             _backdropPackets.Add(f.PacketAddress);
             _backdropPending.Add(
                 (_count, _count + 1, _count + 2, f.PacketAddress));
+        }
+
+        if (TraceTerrainDepthShade &&
+            GpuHle.GameplayActive &&
+            f.Material == HleMaterialKind.TerrainRoute)
+        {
+            foreach (var sv in new[] { va, vb, vc })
+            {
+                float depth = sv.ViewZ > 0f ? sv.ViewZ : sv.Depth;
+                int bucket = 0;
+                while (bucket < TerrainDepthShadeEdges.Length - 1 &&
+                       depth >= TerrainDepthShadeEdges[bucket])
+                    bucket++;
+                int shadeR = (int)(sv.Color & 0xFF);
+                int shadeG = (int)((sv.Color >> 8) & 0xFF);
+                int shadeB = (int)((sv.Color >> 16) & 0xFF);
+                TerrainDepthShadeCount[bucket]++;
+                TerrainDepthShadeLuma[bucket] +=
+                    (shadeR * 77 + shadeG * 151 + shadeB * 28) >> 8;
+                if (shadeR <= 8 && shadeG <= 8 && shadeB <= 8)
+                    TerrainDepthShadeBlack[bucket]++;
+                if (f.Textured) TerrainDepthShadeTextured[bucket]++;
+            }
         }
 
         if (TraceTerrainFrames && GpuHle.GameplayActive)
@@ -5292,6 +5423,44 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         _backdropMovedRight = 0;
         _backdropMovedWrongSide = 0;
         _backdropPackets.Clear();
+        if (TraceTerrainDepthShade && GpuHle.GameplayActive)
+        {
+            var shade = new System.Text.StringBuilder();
+            for (int i = 0; i < TerrainDepthShadeCount.Length; i++)
+            {
+                long count = TerrainDepthShadeCount[i];
+                if (count == 0) continue;
+                string edge = float.IsPositiveInfinity(TerrainDepthShadeEdges[i])
+                    ? "far"
+                    : ((long)TerrainDepthShadeEdges[i]).ToString();
+                shade.Append('<').Append(edge)
+                    .Append(" n=").Append(count)
+                    .Append(" luma=").Append(TerrainDepthShadeLuma[i] / count)
+                    .Append(" black=")
+                    .Append(100 * TerrainDepthShadeBlack[i] / count)
+                    .Append("% tex=")
+                    .Append(100 * TerrainDepthShadeTextured[i] / count)
+                    .Append("%; ");
+                TerrainDepthShadeCount[i] = 0;
+                TerrainDepthShadeLuma[i] = 0;
+                TerrainDepthShadeBlack[i] = 0;
+                TerrainDepthShadeTextured[i] = 0;
+            }
+            if (shade.Length != 0)
+                Console.Error.WriteLine(
+                    $"[TerrainDepthShade] frame={_frame} {shade}" +
+                    $"tint[applied={TerrainTintApplied} " +
+                    $"noPacket={TerrainTintNoPacket} " +
+                    $"invalid={TerrainTintInvalid} " +
+                    $"skippedTile={TerrainTintSkippedTile} " +
+                    $"zeroAverage={TerrainTintZeroAverage}]");
+            TerrainTintApplied = 0;
+            TerrainTintNoPacket = 0;
+            TerrainTintInvalid = 0;
+            TerrainTintSkippedTile = 0;
+            TerrainTintZeroAverage = 0;
+        }
+
         // A repeat present draws nothing; consuming the cell counters there
         // would drain them before the present that actually drew reports.
         if (TraceTerrainFrames && GpuHle.GameplayActive &&

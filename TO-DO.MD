@@ -41,32 +41,55 @@ none of the work below moved it outside that band.
 
 ## Open
 
-1. Far terrain is untextured beyond roughly 6000 camera units. The fog fade now
-   carries it and it reads correctly, but the Dreamcast draws that range
-   textured. The cell textures are already tagged by the coarse and transition
-   hooks; what is missing is a Demolition-specific quad reconstruction. V8:2's
-   cannot be reused - it pairs quad halves at a fixed 0x1C packet stride and
-   folds the far arena into floating ribbons.
+1. Far terrain is untextured beyond roughly 6000 camera units - textured
+   coverage by depth is 100% to 4000, 55% to 6000 and 0% past it. The fog fade
+   carries it and it reads correctly now, but the Dreamcast draws that range
+   textured.
 
-2. Fog falloff is approximated. The shader uses a fixed density of 0.275390625
-   against a reconstructed PVR table. The real values are in the Dreamcast
-   executable: density at `0x8C1B40A0`, and the 128-entry `FOG_TABLE` at PVR
-   offset 0x200. Reading those would match the curve exactly rather than
-   approximately.
+   The blocker is narrower than previously recorded, and the previous note was
+   wrong on two counts. The pairing stride is 0x1C, identical to V8:2 - measured
+   directly, 19 consecutive pairs, no exceptions - so that is not why reusing
+   its reconstruction produced ribbons. And the far cells carry no cell textures
+   at all: every packet `TagCoarseTerrainPacket` registers comes from the detail
+   writer at 0x8002B3B4, never from the route writer at 0x8002ABEC, because
+   `ReadTerrainCellTextures` does not resolve a texture grid for Demolition's
+   route path. Until that resolves there is nothing to texture the far cells
+   with. Expect a game-specific gp offset, the way the COLS fog word turned out
+   to be.
 
-3. The 3D Jabba's Palace frontend still renders at 4:3. Not started.
+   Note for anyone re-reading the removed far-terrain tint: it reported hits on
+   every far packet, but with route cells never registered those were stale
+   registrations at recycled packet addresses, so it was applying unrelated
+   cells' colours.
+
+2. DONE. The density was V8:2's 0.275390625; Demolition's installer at
+   0x8C058A20 passes 0.252f, which the PVR register's 8.8 encoding truncates to
+   0.251953125. Passed as `uFogDensity` now. Demolition never writes the
+   128-entry `FOG_TABLE` - every call to the register helper at 0x8C0CCA28 uses
+   an offset below 0x200 - so the reconstructed table needs no per-game variant.
+   The clamp registers come from a per-render-state struct at +0x88 and +0x8C
+   rather than constants, and are still not modelled.
+
+3. The 3D Jabba's Palace frontend still renders at 4:3. Attempted and reverted.
+
+   Widening it works in the sense that matters: gating the expanded framebuffer
+   on a hold flag raised by the selectors' own per-frame draw callback (state 16
+   in `TraceDemolitionFrontendState`) does widen the scene, and the room reveals
+   two Bith musicians that 4:3 crops entirely.
+
+   What broke is the frontend's 2D layer - title, planet, arena name and the
+   button prompts all disappeared, with horizontal banding across the arch. The
+   cause is `holdCompletedDemolitionFrontendFrame` in `PresentDisplay`: the
+   shell alternates two display buffers, one of which is incomplete, and that
+   hold deliberately re-presents the last complete one. Widening changes the
+   present size the hold compares against, so it starts holding the wrong
+   buffer. Handle that before re-attempting; do not stack a fix on top of it.
 
 4. Skybox seams. Not investigated.
 
 5. About 200 pixels of backdrop still show through the right gameplay margin,
    and 17 through the left. Small enough that the remaining cause has not been
    identified.
-
-6. Not reproduced: a report of the SELECT ARENA screen rendering black behind
-   its text. A cold-boot replay of that screen, 260 frames of cycling the
-   selector, and backing out and returning all render it correctly. The path
-   that produces it is still unknown, and the unmapped-call crash fixed above is
-   a plausible but unconfirmed explanation.
 
 7. The targeting reticle may sit slightly off its target. Pre-existing and
    unverified - it was left on exactly the treatment it had before the HUD

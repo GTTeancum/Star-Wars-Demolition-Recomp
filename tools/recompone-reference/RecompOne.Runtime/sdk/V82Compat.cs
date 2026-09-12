@@ -526,6 +526,7 @@ public static class V82Compat
             // A newly constructed shell selector owns valid visibility data;
             // stale level rendering from the prior match is fully unwound.
             _retiredGameplayRenderFence = false;
+            GpuHle.SignalDemolitionSelector();
             InputManager.SignalScriptStage(stage, captureDelayPolls: 240);
         }
 

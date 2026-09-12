@@ -28,6 +28,19 @@ public static class GpuHle
         NativeModalPanels.Add(NormalizePacketAddress(address));
     public static bool IsNativeModalPanel(uint address) =>
         NativeModalPanels.Contains(NormalizePacketAddress(address));
+    // Demolition's profile, contestant, opponent and arena selectors are a real
+    // 3D scene in Jabba's palace rather than a 2D menu plate, so they want the
+    // widened frustum even though GameplayActive is false in the shell. Their
+    // native draw callback recurs every frame the selector is visible, so hold
+    // the flag the way the modal hold does rather than hunting a teardown edge.
+    // Opt-in while the shell's two-buffer present is still being worked out.
+    public static readonly bool WideFrontendEnabled =
+        Environment.GetEnvironmentVariable(
+            "RECOMPONE_DEMOLITION_WIDE_FRONTEND") == "1";
+    public static int DemolitionSelectorHold { get; set; }
+    public static bool DemolitionSelectorActive =>
+        WideFrontendEnabled && DemolitionSelectorHold > 0;
+    public static void SignalDemolitionSelector() => DemolitionSelectorHold = 4;
     public static float TargetAspect { get; set; } = 4f / 3f;
     public static string? DebugCaptureLabel { get; set; }
     public static int DebugGameplayTick { get; set; }
@@ -624,6 +637,7 @@ public static class GpuHle
         _terrainRouteColorRamp = null;
         DebugGameplayTick = 0;
         NativeModalHold = 0;
+        DemolitionSelectorHold = 0;
         Backend?.ResetTransientState();
     }
 

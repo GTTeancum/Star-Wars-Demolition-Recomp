@@ -53,49 +53,63 @@ none of the work below moved it outside that band.
    carries it and it reads correctly now, but the Dreamcast draws that range
    textured.
 
-   The blocker is narrower than previously recorded, and the previous note was
-   wrong on two counts. The pairing stride is 0x1C, identical to V8:2 - measured
-   directly, 19 consecutive pairs, no exceptions - so that is not why reusing
-   its reconstruction produced ribbons. And the far cells carry no cell textures
-   at all: every packet `TagCoarseTerrainPacket` registers comes from the detail
-   writer at 0x8002B3B4, never from the route writer at 0x8002ABEC, because
-   `ReadTerrainCellTextures` does not resolve a texture grid for Demolition's
-   route path. Until that resolves there is nothing to texture the far cells
-   with. Expect a game-specific gp offset, the way the COLS fog word turned out
-   to be.
+   Three things previously recorded as blockers are not. The pairing stride is
+   0x1C, identical to V8:2, measured over 19 consecutive pairs. Both writers do
+   tag their cells - the route writer at 0x8002ABEC contributes about 10,000
+   tags a frame, and an earlier note claiming it never tagged came from a
+   40-sample trace that was simply too early. And the terrain CLUT, which was
+   read from V8:2's gp+0xDA8 and returned 0x0001, now reads correctly from
+   gp+0xCF4; that was what turned the first trial green.
 
-   Note for anyone re-reading the removed far-terrain tint: it reported hits on
-   every far packet, but with route cells never registered those were stale
-   registrations at recycled packet addresses, so it was applying unrelated
-   cells' colours.
+   What remains is the vertex ordering inside each half. With everything above
+   corrected, 79% of halves pair and the rebuilt quads still come out twisted,
+   so the far arena grows triangular shards and a checkerboard. Compare
+   Demolition's route and detail writers against V8:2's for the order the three
+   vertices of each half are written in.
 
-2. The 3D Jabba's Palace frontend still renders at 4:3. Attempted and reverted.
+2. The frontend selectors intermittently lose their entire 3D layer. Observed
+   live on CHOOSE CONTESTANT and earlier on SELECT ARENA: the title, the stat
+   bars, the contestant and vehicle names and the button prompts all draw
+   normally, and the Jabba's palace room, the character model and the arena
+   globe are simply absent against black. The window keeps running at 59.9 FPS,
+   so it is not a hang.
 
-   Widening it works in the sense that matters: gating the expanded framebuffer
-   on a hold flag raised by the selectors' own per-frame draw callback (state 16
-   in `TraceDemolitionFrontendState`) does widen the scene, and the room reveals
-   two Bith musicians that 4:3 crops entirely.
+   Not reproduced from a script. Ruled out so far: the run never trips the
+   `_retiredGameplayRenderFence` or `IsCurrentOverlayMemory` guards in
+   `DrawDemolitionVisibilityLeaf`, which were the obvious suspects since the 2D
+   layer draws through a different path; a cold-boot replay of both selectors,
+   260 frames of cycling the arena selector, backing out and returning, and
+   accepting each selector 12 polls after it appears so the next screen is
+   entered mid-teardown, all render correctly. Something about interactive
+   timing is the trigger, so the next step is capturing the input timing of a
+   failing run rather than more scripted variants.
 
-   What broke is the frontend's 2D layer - title, planet, arena name and the
-   button prompts all disappeared, with horizontal banding across the arch. The
-   cause is `holdCompletedDemolitionFrontendFrame` in `PresentDisplay`: the
-   shell alternates two display buffers, one of which is incomplete, and that
-   hold deliberately re-presents the last complete one. Widening changes the
-   present size the hold compares against, so it starts holding the wrong
-   buffer. Handle that before re-attempting; do not stack a fix on top of it.
+3. The 3D Jabba's Palace frontend still renders at 4:3. Implemented behind
+   `RECOMPONE_DEMOLITION_WIDE_FRONTEND=1`, off by default.
 
-3. Skybox seams. Not investigated.
+   The scene widens correctly with it on and the room reveals two Bith musicians
+   that 4:3 crops entirely. What is not settled is the shell's two-buffer
+   present: it alternates display buffers, one of which is incomplete, and
+   `holdCompletedDemolitionFrontendFrame` re-presents the completed one.
+   Widening changes the size that hold compares against, so the first attempt
+   held the wrong buffer and lost the whole 2D layer. The flag now also
+   suppresses that hold while a selector is widened, which is the obvious
+   pairing but is unverified - it needs checking against the two-buffer
+   behaviour before the flag can default on. It may well share a cause with
+   item 2 above.
 
-4. About 200 pixels of backdrop still show through the right gameplay margin,
+4. Skybox seams. Not investigated.
+
+5. About 200 pixels of backdrop still show through the right gameplay margin,
    and 17 through the left. Small enough that the remaining cause has not been
    identified. The PVR fog clamp registers are also still unmodelled; they come
    from a per-render-state struct at +0x88 and +0x8C rather than constants.
 
-5. The targeting reticle may sit slightly off its target. Pre-existing and
+6. The targeting reticle may sit slightly off its target. Pre-existing and
    unverified - it was left on exactly the treatment it had before the HUD
    anchoring change, so it is not a regression from that work.
 
-6. WISHLIST: texture-pack support using Dreamcast textures. The loader exists
+7. WISHLIST: texture-pack support using Dreamcast textures. The loader exists
    and looks for `game\textures\2x`; every run reports 0% coverage because no
    pack has been produced. The disc is now readable via
    `tools\recompone-demolition\dreamcast\gdi.py`.

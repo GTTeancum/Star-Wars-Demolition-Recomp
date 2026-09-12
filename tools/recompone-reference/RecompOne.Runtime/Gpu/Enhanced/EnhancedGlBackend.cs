@@ -5614,6 +5614,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         // Re-armed each frame the modal is drawn, so it follows the overlay
         // rather than lingering after it closes.
         if (GpuHle.NativeModalHold > 0) GpuHle.NativeModalHold--;
+        if (GpuHle.DemolitionSelectorHold > 0) GpuHle.DemolitionSelectorHold--;
         string? captureLabel = GpuHle.DebugCaptureLabel;
         _probeTriangleHistory.Enqueue(
             (_frame, _pendingProbeTriangles.ToArray()));
@@ -5880,8 +5881,12 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         int presentScale = GpuHle.NativeResolution ? 1 : GlVram.Scale;
         int fbW = w1x * presentScale;
         int fbH = h1x * presentScale;
+        // The shell alternates two display buffers and one is incomplete, so
+        // this re-presents the completed one. A widened selector renders both
+        // halves of its scene itself, and holding then freezes out the 2D layer.
         bool holdCompletedDemolitionFrontendFrame =
             IsDemolition && !GpuHle.GameplayActive && !rgb24 &&
+            !GpuHle.DemolitionSelectorActive &&
             dispY > 0 && w == 320 && h == 240 &&
             _presentW == fbW && _presentH == fbH &&
             _presentNearest == GpuHle.NativeResolution;

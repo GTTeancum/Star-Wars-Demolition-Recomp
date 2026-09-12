@@ -717,7 +717,7 @@ public static class Gte
         uint div = Divide(H, SZ[3]);
         bool wideProjection =
             ConfigManager.View.HighResolution3D &&
-            GpuHle.GameplayActive &&
+            (GpuHle.GameplayActive || GpuHle.DemolitionSelectorActive) &&
             GpuHle.WideAspect > GpuHle.BaseAspect + 0.001f;
         // Geometry beside the camera overflows MAC0 here as well: the divide
         // has already saturated, and multiplying that by a large IR leaves the

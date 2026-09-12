@@ -46,28 +46,9 @@ none of the work below moved it outside that band.
    Widening changes the size that hold compares against. The flag suppresses
    the hold while a selector is widened, which is unverified.
 
-5. The HUD warning banner tears. Anchoring the right-hand widget to the right
-   margin keys on screen position, and the banner shares its rows with the
-   damage ring, so "Warning Shields Low" is cut in half. Key the anchor on
-   texture page instead of position.
-
-6. Buildings disappear in dense arenas. Suspected
+5. Buildings disappear in dense arenas. Suspected
    `RECOMPONE_DEMOLITION_DRAW_BUDGET`, which defaults to 64. Untested; it needs
    a measured frame cost before the default moves.
-
-7. Fading between screens is coarse and banded. This is the screen-to-screen
-   transition, not the distance fade over the horizon, which is done. Worth
-   reverse engineering the Dreamcast's version.
-
-8. Skybox seams. Not investigated.
-
-9. About 200 pixels of backdrop still show through the right gameplay margin,
-   and 17 through the left. The PVR fog clamp registers are also still
-   unmodelled; they come from a per-render-state struct at +0x88 and +0x8C
-   rather than constants.
-
-10. The targeting reticle may sit slightly off its target. Pre-existing and
-    unverified.
 
 ## Notes
 

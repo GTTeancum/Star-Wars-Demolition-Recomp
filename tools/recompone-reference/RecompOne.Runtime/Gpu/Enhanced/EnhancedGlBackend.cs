@@ -4490,10 +4490,23 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             // 0.31 of 240 is 74, just past the authored band's last row at 73.
             // Requiring the whole tile inside it, not merely its top edge,
             // keeps a reticle that happens to ride high out of the corner.
+            //
+            // Position alone is not enough to decide this. Text drawn in the
+            // band arrives as one quad per glyph, so a split at 40% sends the
+            // glyphs left of it to one edge and the rest to the other, which
+            // is what cut "Warning Shields Low" in half. The two corner
+            // widgets are not glyphs: tracing the band shows the radar as a
+            // single 52x51 plate and the damage ring as a single 60x53 one,
+            // with the shield arc over the ring drawn as untextured single
+            // pixels. Requiring a plate-sized textured tile or an untextured
+            // one leaves every glyph on the band's own anchor, whole.
+            bool demolitionCornerWidget =
+                !f.Textured || (r.W >= 40 && r.H >= 40);
             bool demolitionTopRightHud =
                 IsDemolition && topHud &&
                 localTop >= 0f &&
                 localTop + r.H <= target.H * 0.31f &&
+                demolitionCornerWidget &&
                 localCenter > target.W * 0.4f;
             if (demolitionTopRightHud)
                 anchor = target.Margin;

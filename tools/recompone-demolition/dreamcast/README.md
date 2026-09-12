@@ -39,3 +39,34 @@ Fog, traced from the register write backwards:
 
 Three consecutive bytes as R, G, B is the shape the PS1 port reads from its own
 COLS block, which is what `ColsFogOffset` in V82Compat.cs is based on.
+
+## Texture extraction
+
+`pvr.py` decodes Dreamcast PVR textures to RGBA and `extract_textures.py`
+writes every one in the game to PNG:
+
+```powershell
+python tools\recompone-demolition\dreamcast\extract_textures.py
+```
+
+2,398 of 2,408 come out; the ten that do not are 4bpp palettised, which the
+game uses for almost nothing.
+
+What the format needed, none of which is guessable:
+
+- `.EXP` is an IFF `FORM` container with big-endian chunk lengths and form type
+  `TERR`. The PS1 and Dreamcast builds carry the *same chunk list in the same
+  order* - `TITL TEXT XLSC HEAD XBGM SUNA COLS XBMP XTIN ZONE... ZMAP FORM` -
+  which is what makes matching the two texture sets tractable.
+- Textures are `PVRT` chunks scattered through the archive. Pixel formats seen
+  are ARGB1555 and ARGB4444; layouts are square-twiddled, rectangle-twiddled and
+  VQ, each with or without a mip chain, plus 8bpp palettised for terrain.
+- Twiddled addressing interleaves **x into the low bit** of each pair. The other
+  way round decodes to a transposed image that still looks plausible, so check
+  against `SHARED/FILLER.PVR`, which is the title screen and reads as text.
+- The terrain set in `XBMP` is 8bpp sharing one palette: a `CL32` header at the
+  chunk's data start, then 256 entries stored **B,G,R,A**. Reading those as RGBA
+  turns Tatooine blue, which is an easy tell.
+- `COLS` is 32 bytes, eight colour words. Word one is the atmosphere colour the
+  fog fades toward - `63 3C 32` in DESERT.EXP, matching what the PS1 build holds
+  at gp+0xCF0 and confirming `ColsFogOffset` from the disc side.

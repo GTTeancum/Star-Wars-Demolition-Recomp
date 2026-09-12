@@ -57,9 +57,10 @@ the interesting ones. `SHELL/LOAD.TBL`, `SHELL/RESOURCE.TBL` and
 `SHARED/HUD.TBL` are plain tables - a count, then offsets - rather than FORM
 containers, and they hold four complete font atlases (256x256 4bpp, ASCII plus
 the controller button glyphs), the title art, the radar and HUD plates, and the
-loading background gradient. There is no separate loading-screen artwork: a
-Dreamcast loading screen is the title art, a gradient and a font composited at
-runtime.
+loading background gradient. The loading screens are the `XLSC` chunk in each level archive, one per level.
+Each is a 640x256 image the disc stores as a 512-wide and a 128-wide texture,
+because 640 is not a power of two; the extractor rejoins them into
+`loading_screen.png`. Split in half they read as scenery and are easy to miss.
 
 Those 4bpp and 8bpp plates carry no palette of their own - no CL32, no PVPL -
 so `pvr.decode` renders their indices as a grey ramp unless a palette is passed.

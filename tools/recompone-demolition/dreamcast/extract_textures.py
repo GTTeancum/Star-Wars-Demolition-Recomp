@@ -90,8 +90,32 @@ def extract(data, name, out_dir):
         Image.frombytes("RGBA", (w, h), rgba).save(out_dir / f"{stem}.png")
         written += 1
         index += 1
+    join_loading_screen(out_dir)
     print(f"{name}: {written} written, {failed} undecoded")
     return written, failed
+
+
+def join_loading_screen(out_dir):
+    """Stitch the XLSC pair into the level's loading screen.
+
+    A loading screen is one 640x256 image the disc stores as a 512-wide and a
+    128-wide texture, because 640 is not a power of two. Left as halves they
+    look like scenery tiles and are easy to walk straight past.
+    """
+    from PIL import Image
+    halves = sorted(out_dir.glob("*_XLSC_*.png"))
+    if len(halves) != 2:
+        return
+    images = [Image.open(h).convert("RGBA") for h in halves]
+    images.sort(key=lambda i: -i.width)
+    width = sum(i.width for i in images)
+    height = max(i.height for i in images)
+    joined = Image.new("RGBA", (width, height))
+    x = 0
+    for image in images:
+        joined.paste(image, (x, 0))
+        x += image.width
+    joined.save(out_dir / "loading_screen.png")
 
 
 def main() -> int:

@@ -9,6 +9,15 @@ public static class LibPad
     const byte Connected = 0x00;
     const byte Disconnected = 0xFF;
     const byte DigitalId = 0x41;
+    // 0x73 is the DualShock analog-pad id. The four analog bytes were already
+    // being written at +4..+7, but a pad announcing 0x41 is a 16-bit digital
+    // pad and a game stops reading after the button halfwords, so the sticks
+    // were inert. Announce analog so they are actually consumed.
+    // RECOMPONE_DIGITAL_PAD=1 restores the digital id if a title mishandles it.
+    const byte AnalogId = 0x73;
+    static readonly bool ForceDigitalPad =
+        Environment.GetEnvironmentVariable("RECOMPONE_DIGITAL_PAD") == "1";
+    static byte PadId => ForceDigitalPad ? DigitalId : AnalogId;
     const uint PadStateDiscon = 0;
     const uint PadStateStable = 6;
 
@@ -89,7 +98,7 @@ public static class LibPad
     static void WritePad(IMemory m, uint buf, ushort buttons, bool present, byte rx, byte ry, byte lx, byte ly)
     {
         m.WriteU8(buf + 0, present ? Connected    : Disconnected);
-        m.WriteU8(buf + 1, present ? DigitalId    : Disconnected);
+        m.WriteU8(buf + 1, present ? PadId        : Disconnected);
         m.WriteU8(buf + 2, (byte)(buttons & 0xFF));
         m.WriteU8(buf + 3, (byte)(buttons >> 8));
         m.WriteU8(buf + 4, present ? rx : (byte)0x80);

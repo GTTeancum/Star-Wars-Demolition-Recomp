@@ -26,3 +26,7 @@ Thumbs.db
 
 # Reference discs are user-supplied retail media
 /Dreamcast disc/
+
+# Python bytecode
+__pycache__/
+*.pyc

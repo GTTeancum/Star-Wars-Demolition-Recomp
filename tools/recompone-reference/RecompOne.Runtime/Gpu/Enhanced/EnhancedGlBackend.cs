@@ -2308,11 +2308,15 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         using var timing = TracePerformanceDetail
             ? new DrawTriTimingScope(this)
             : default;
-        // V8:2's coarse reconstruction rebuilds whole quads from paired halves
-        // at a fixed 0x1C packet stride and an authored XTIN diagonal. Demolition
-        // pairs its halves differently, so reusing that path here folds the far
-        // arena into floating ribbons. Its cell textures are still tagged, and
-        // DemolitionFarTerrainTint below uses them without touching geometry.
+        // Off for Demolition, but not for the reasons previously recorded here.
+        // Its coarse halves pair at the same 0x1C stride V8:2 uses, measured
+        // over 19 consecutive pairs, and both its route and detail writers do
+        // tag their cells - about 10,000 route tags a frame. With the terrain
+        // CLUT read from the right address (see ColsTerrainClutOffset) the
+        // colours come out correct too. What still does not hold is the vertex
+        // ordering inside each half: 79% of halves pair, yet the rebuilt quads
+        // come out twisted, so the far arena grows triangular shards and a
+        // checkerboard. Ordering is the remaining unknown.
         GpuHle.CoarseTerrainPacket coarseTerrain = default;
         bool hasCoarseTerrain =
             !IsDemolition &&

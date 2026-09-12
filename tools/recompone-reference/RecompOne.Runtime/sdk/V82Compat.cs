@@ -1626,6 +1626,10 @@ public static class V82Compat
     // Confirmed against RAM - gp+0xCF0 holds 63 3C 32, the arena's own
     // backdrop colour, and the two words after it continue the authored ramp.
     static uint ColsFogOffset => IsDemolition ? 0xCF0u : 0xDA4u;
+    // The terrain CLUT sits at COLS+4, one word past the fog colour, in both
+    // games. Reading V8:2's address under Demolition returns 0x0001, which is
+    // not a CLUT coordinate at all; gp+0xCF4 holds 0x78C0, VRAM y=483.
+    static uint ColsTerrainClutOffset => IsDemolition ? 0xCF4u : 0xDA8u;
     static uint ColsRampHighOffset => IsDemolition ? 0xCF8u : 0xDACu;
     static uint ColsRampLowOffset => IsDemolition ? 0xD50u : 0xE04u;
     static uint ColsSourceOffset => IsDemolition ? 0xD28u : 0xDDCu;
@@ -4660,7 +4664,7 @@ public static class V82Compat
 
         uint local = ((x & 0x3Fu) << 6) + (z & 0x3Fu);
         uint textureGrid = page + 0x2000u + local;
-        ushort clut = m.ReadU16(c.GP + 0xDA8u);
+        ushort clut = m.ReadU16(c.GP + ColsTerrainClutOffset);
         GpuHle.TerrainQuadDistanceColors distanceColors =
             ReadDreamcastTerrainDistanceColors(c, m, x, z);
         return ReadTerrainTextureGrid(
@@ -4679,7 +4683,7 @@ public static class V82Compat
         {
             local = localBytes >> 1;
             uint textureGrid = c.S4 + 0x2000u + local;
-            ushort clut = m.ReadU16(c.GP + 0xDA8u);
+            ushort clut = m.ReadU16(c.GP + ColsTerrainClutOffset);
             textures = ReadTerrainTextureGrid(m, textureGrid, clut, 2);
         }
 

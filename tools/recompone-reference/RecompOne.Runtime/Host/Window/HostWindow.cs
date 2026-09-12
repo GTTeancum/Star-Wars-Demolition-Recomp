@@ -202,7 +202,13 @@ internal static class HostWindow
         }
         catch (Exception e)
         {
-            Console.Error.WriteLine($"[Host] window unavailable {e.Message}");
+            // Window.Initialize runs the GL load callback, so a fault in the
+            // renderer or the texture pack surfaces here and is indis-
+            // tinguishable from a real windowing failure without the type and
+            // the frame it came from.
+            Console.Error.WriteLine(
+                $"[Host] window unavailable {e.GetType().Name}: {e.Message}");
+            Console.Error.WriteLine(e.StackTrace);
             _headless = true;
         }
     }

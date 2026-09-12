@@ -48,7 +48,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
     readonly record struct EntryInfo(
         string Image, int X, int Y, int Width, int Height, string Source);
     readonly record struct PendingTerrainAtlas(
-        string Name, string Image, int Width, int Height,
+        string Name, string Image, int Width, int Height, int TileSize,
         int ImageX, int ImageY, int Depth, ulong IndexHash,
         byte[] Indices, ushort[] Palette);
     readonly record struct PendingFontFile(
@@ -64,6 +64,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
         public required LooseImage Image { get; init; }
         public required int SourceWidth { get; init; }
         public required int SourceHeight { get; init; }
+        public required int TileSize { get; init; }
         public required int ImageX { get; init; }
         public required int ImageY { get; init; }
         public required int Depth { get; init; }
@@ -245,11 +246,18 @@ internal sealed class TextureReplacementAtlas : IDisposable
             if (palette.Length != 256)
                 throw new InvalidDataException(
                     "Terrain atlas palette must contain 256 colors");
+            // Most arenas pack their ground textures four cells tall, which
+            // is what the original manifests relied on, but Hoth is nine by
+            // five. An atlas may state its cell size instead of implying it.
+            int declaredTileSize = entry.TryGetProperty(
+                "tileSize", out JsonElement tileSizeElement)
+                ? tileSizeElement.GetInt32() : 0;
             pendingTerrain.Add(new PendingTerrainAtlas(
                 entry.GetProperty("name").GetString() ?? "terrain",
                 entry.GetProperty("image").GetString() ?? "",
                 entry.GetProperty("width").GetInt32(),
                 entry.GetProperty("height").GetInt32(),
+                declaredTileSize,
                 entry.GetProperty("imageX").GetInt32(),
                 entry.GetProperty("imageY").GetInt32(),
                 entry.GetProperty("depth").GetInt32(),
@@ -360,10 +368,12 @@ internal sealed class TextureReplacementAtlas : IDisposable
         {
             LooseImage image = images[entry.Image];
             int bytesPerPixel = entry.Depth == 2 ? 2 : 1;
-            int tileSize = entry.Height / 4;
+            int tileSize = entry.TileSize > 0
+                ? entry.TileSize
+                : entry.Height / 4;
             if (entry.Width <= 0 || entry.Height <= 0 ||
                 entry.Depth is < 0 or > 2 ||
-                entry.Height % 4 != 0 ||
+                entry.Height % tileSize != 0 ||
                 tileSize <= 0 || entry.Width % tileSize != 0 ||
                 entry.Indices.Length !=
                     entry.Width * entry.Height * bytesPerPixel ||
@@ -378,6 +388,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
                 Image = image,
                 SourceWidth = entry.Width,
                 SourceHeight = entry.Height,
+                TileSize = tileSize,
                 ImageX = entry.ImageX,
                 ImageY = entry.ImageY,
                 Depth = entry.Depth,
@@ -455,7 +466,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
         int largestTile = 0;
         foreach (TerrainAtlas atlas in _terrainAtlases)
         {
-            int tileSize = atlas.SourceHeight / 4;
+            int tileSize = atlas.TileSize;
             int scale = atlas.Image.Width / atlas.SourceWidth;
             tileCount += (atlas.SourceWidth / tileSize) *
                 (atlas.SourceHeight / tileSize);
@@ -481,7 +492,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
         int tileIndex = 0;
         foreach (TerrainAtlas atlas in _terrainAtlases)
         {
-            int tileSize = atlas.SourceHeight / 4;
+            int tileSize = atlas.TileSize;
             int scale = atlas.Image.Width / atlas.SourceWidth;
             int outputSize = tileSize * scale;
             for (int sourceY = 0;
@@ -1197,7 +1208,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
             TerrainPaletteTransform(
                 match, s, globalX, globalY, sourceWidth, sourceHeight);
         Vector4 terrainMipRect = Vector4.Zero;
-        int tileSize = match.SourceHeight / 4;
+        int tileSize = match.TileSize;
         int tileOriginX = tile.X / tileSize * tileSize;
         int tileOriginY = tile.Y / tileSize * tileSize;
         if (tile.X + sourceWidth <= tileOriginX + tileSize &&

@@ -174,7 +174,7 @@ internal sealed class TextureReplacementAtlas : IDisposable
         string manifestPath = Path.Combine(directory, "manifest.json");
         if (!File.Exists(manifestPath))
         {
-            Console.WriteLine("[TexturePack] no loose 2x DDS pack found");
+            Console.WriteLine("[TexturePack] no replacement pack found");
             return;
         }
 
@@ -300,7 +300,10 @@ internal sealed class TextureReplacementAtlas : IDisposable
             if (!path.StartsWith(directoryPrefix, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException(
                     $"Texture replacement escapes its mod directory: {relative}");
-            images[relative] = ReadDds(path, relative);
+            images[relative] =
+                path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                    ? ReadPng(path, relative)
+                    : ReadDds(path, relative);
         }
 
         Dictionary<string, (int X, int Y)>? placements = null;
@@ -724,6 +727,116 @@ internal sealed class TextureReplacementAtlas : IDisposable
             int source = (sy * image.Width + sx) * 4;
             int target = ((innerY + y) * atlasWidth + innerX + x) * 4;
             System.Buffer.BlockCopy(image.Rgba, source, atlas, target, 4);
+        }
+    }
+
+    /// <summary>
+    /// Reads an 8-bit PNG. A replacement pack is meant to be edited, and PNG
+    /// opens in anything, so the pack ships as PNG and DDS is kept working for
+    /// packs that already exist. Only the subset a texture pack needs is
+    /// handled: 8 bits per channel, colour types 2 and 6, no interlacing.
+    /// </summary>
+    static LooseImage ReadPng(string path, string name)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        ReadOnlySpan<byte> signature =
+            [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        if (bytes.Length < 8 || !bytes.AsSpan(0, 8).SequenceEqual(signature))
+            throw new InvalidDataException($"Invalid PNG texture: {name}");
+
+        static uint BigEndian(byte[] data, int offset) =>
+            (uint)(data[offset] << 24 | data[offset + 1] << 16 |
+                   data[offset + 2] << 8 | data[offset + 3]);
+
+        int width = 0, height = 0, colorType = 0;
+        var compressed = new MemoryStream();
+        int position = 8;
+        while (position + 8 <= bytes.Length)
+        {
+            int length = checked((int)BigEndian(bytes, position));
+            string type = System.Text.Encoding.ASCII.GetString(
+                bytes, position + 4, 4);
+            int data = position + 8;
+            if (type == "IHDR")
+            {
+                width = checked((int)BigEndian(bytes, data));
+                height = checked((int)BigEndian(bytes, data + 4));
+                if (bytes[data + 8] != 8 || bytes[data + 12] != 0)
+                    throw new InvalidDataException(
+                        $"PNG must be 8-bit and non-interlaced: {name}");
+                colorType = bytes[data + 9];
+                if (colorType is not (2 or 6))
+                    throw new InvalidDataException(
+                        $"PNG must be RGB or RGBA: {name}");
+            }
+            else if (type == "IDAT")
+                compressed.Write(bytes, data, length);
+            else if (type == "IEND")
+                break;
+            position = data + length + 4;
+        }
+        if (width <= 0 || height <= 0 || width > 4096 || height > 4096)
+            throw new InvalidDataException($"PNG has no usable size: {name}");
+
+        compressed.Position = 0;
+        using var inflate = new System.IO.Compression.ZLibStream(
+            compressed, System.IO.Compression.CompressionMode.Decompress);
+        int channels = colorType == 6 ? 4 : 3;
+        int stride = width * channels;
+        byte[] raw = new byte[checked((stride + 1) * height)];
+        int read = 0;
+        while (read < raw.Length)
+        {
+            int got = inflate.Read(raw, read, raw.Length - read);
+            if (got <= 0)
+                throw new InvalidDataException($"PNG data is truncated: {name}");
+            read += got;
+        }
+
+        byte[] rgba = new byte[checked(width * height * 4)];
+        byte[] previous = new byte[stride];
+        byte[] current = new byte[stride];
+        int source = 0;
+        for (int y = 0; y < height; y++)
+        {
+            int filter = raw[source++];
+            System.Buffer.BlockCopy(raw, source, current, 0, stride);
+            source += stride;
+            for (int x = 0; x < stride; x++)
+            {
+                int a = x >= channels ? current[x - channels] : 0;
+                int b = previous[x];
+                int c = x >= channels ? previous[x - channels] : 0;
+                int value = filter switch
+                {
+                    0 => current[x],
+                    1 => current[x] + a,
+                    2 => current[x] + b,
+                    3 => current[x] + ((a + b) >> 1),
+                    4 => current[x] + Paeth(a, b, c),
+                    _ => throw new InvalidDataException(
+                        $"PNG filter {filter} is not valid: {name}"),
+                };
+                current[x] = (byte)value;
+            }
+            for (int x = 0; x < width; x++)
+            {
+                int output = (y * width + x) * 4;
+                int input = x * channels;
+                rgba[output] = current[input];
+                rgba[output + 1] = current[input + 1];
+                rgba[output + 2] = current[input + 2];
+                rgba[output + 3] = channels == 4 ? current[input + 3] : (byte)255;
+            }
+            (previous, current) = (current, previous);
+        }
+        return new LooseImage(name, width, height, rgba);
+
+        static int Paeth(int a, int b, int c)
+        {
+            int p = a + b - c;
+            int pa = Math.Abs(p - a), pb = Math.Abs(p - b), pc = Math.Abs(p - c);
+            return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
         }
     }
 

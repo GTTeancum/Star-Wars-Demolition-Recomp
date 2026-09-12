@@ -21,6 +21,10 @@ internal sealed class PresentationRenderer : IDisposable
         uniform int uLoadingCardOverlay;
         uniform vec4 uLoadingCardRect;
         uniform vec4 uLoadingCardSampleRect;
+        // x,y bound the rows the engine draws the arena title into; z is the
+        // channel difference above which a pixel counts as title rather than
+        // art. Zero selects the fixed top strip instead of the key.
+        uniform vec3 uLoadingCardTitleKey;
         out vec4 oColor;
 
         vec3 sourcePixel(ivec2 p) {
@@ -56,13 +60,28 @@ internal sealed class PresentationRenderer : IDisposable
                     (vUv - uLoadingCardRect.xy) / uLoadingCardRect.zw;
                 if (innerUv.x >= 0.0 && innerUv.x <= 1.0 &&
                     innerUv.y >= 0.0 && innerUv.y <= 1.0) {
+                    vec2 cardUv = uLoadingCardSampleRect.xy +
+                        innerUv * uLoadingCardSampleRect.zw;
+                    vec3 card = texture(uLoadingCard, cardUv).rgb;
                     // The native title is drawn after the card and remains
-                    // authoritative. Replace only the preview underneath it.
-                    bool preserveTitle = vUv.y < 0.16;
+                    // authoritative. Where the card reproduces the original
+                    // art exactly, the pixels that disagree with it are the
+                    // title and its outline, so keying on that disagreement
+                    // preserves the glyphs without also holding back a strip
+                    // of original art around them.
+                    bool preserveTitle;
+                    if (uLoadingCardTitleKey.z > 0.0) {
+                        vec3 delta = abs(center - card);
+                        preserveTitle =
+                            vUv.y >= uLoadingCardTitleKey.x &&
+                            vUv.y <= uLoadingCardTitleKey.y &&
+                            max(delta.r, max(delta.g, delta.b)) >
+                                uLoadingCardTitleKey.z;
+                    } else {
+                        preserveTitle = vUv.y < 0.16;
+                    }
                     if (!preserveTitle) {
-                        vec2 cardUv = uLoadingCardSampleRect.xy +
-                            innerUv * uLoadingCardSampleRect.zw;
-                        center = texture(uLoadingCard, cardUv).rgb;
+                        center = card;
                         loadingCardPixel = true;
                     }
                 }
@@ -189,6 +208,10 @@ internal sealed class PresentationRenderer : IDisposable
     readonly Dictionary<string, (int Width, int Height)> _loadingCardSizes =
         new(StringComparer.OrdinalIgnoreCase);
     string? _lastLoadingCardArena;
+    // Counts upscale passes so a capture can be aimed at the loading window,
+    // which is otherwise invisible in the log between two arena overlays.
+    int _upscalePass;
+    bool _loadingCardWasActive;
     int _width, _height;
     int _lastSourceWidth, _lastSourceHeight, _lastOutputWidth, _lastOutputHeight;
     bool _lastFxaa;
@@ -196,6 +219,7 @@ internal sealed class PresentationRenderer : IDisposable
     int _upscaleLinearFilter, _upscaleLoadingUiRestore;
     int _upscaleLoadingCardOverlay, _upscaleLoadingCardRect;
     int _upscaleLoadingCardSampleRect;
+    int _upscaleLoadingCardTitleKey;
     int _fxaaSourceSize, _fxaaInvResolution;
 
     public bool Ready { get; private set; }
@@ -230,6 +254,8 @@ internal sealed class PresentationRenderer : IDisposable
             _gl.GetUniformLocation(_upscaleProgram, "uLoadingCardRect");
         _upscaleLoadingCardSampleRect =
             _gl.GetUniformLocation(_upscaleProgram, "uLoadingCardSampleRect");
+        _upscaleLoadingCardTitleKey =
+            _gl.GetUniformLocation(_upscaleProgram, "uLoadingCardTitleKey");
         _gl.UseProgram(_fxaaProgram);
         _gl.Uniform1(_gl.GetUniformLocation(_fxaaProgram, "uSource"), 0);
         _fxaaSourceSize = _gl.GetUniformLocation(_fxaaProgram, "uSourceSize");
@@ -318,13 +344,28 @@ internal sealed class PresentationRenderer : IDisposable
         // scale such as 4x incorrectly disables it at the Enhanced 3x preset.
         bool validV82PresentationSource =
             sourceWidth >= 320 && sourceHeight >= 240;
+        // Demolition's loading screen belongs to the SHELL_LOAD overlay and
+        // runs entirely before the arena's VRAM layout is installed, so the
+        // gameplay tick is still meaningless there; keying on the overlay
+        // covers the whole screen rather than its single closing frame.
+        // SHELL_LOAD is not unloaded when the match begins - it stays resident
+        // until the shell reclaims its memory - so the gameplay flag, which
+        // the VRAM reset raises, is what closes the window.
+        bool demolitionLoadingScreen =
+            isDemolition &&
+            !RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
+            Array.Exists(
+                Dispatcher.ActiveNames,
+                name => name.Equals(
+                    "SHELL_LOAD", StringComparison.OrdinalIgnoreCase));
         bool preTickLoadingCard =
             ConfigManager.View.HighResolutionTextures &&
-            isV82 &&
             RecompOne.Runtime.Hle.GpuHle.Active &&
-            RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
-            RecompOne.Runtime.Hle.GpuHle.DebugGameplayTick == 0 &&
-            validV82PresentationSource;
+            validV82PresentationSource &&
+            (demolitionLoadingScreen ||
+             (isV82 &&
+              RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
+              RecompOne.Runtime.Hle.GpuHle.DebugGameplayTick == 0));
         bool frontendPresentation =
             RecompOne.Runtime.Hle.GpuHle.Active &&
             !RecompOne.Runtime.Hle.GpuHle.GameplayActive &&
@@ -358,20 +399,38 @@ internal sealed class PresentationRenderer : IDisposable
         _gl.Uniform1(
             _upscaleLoadingCardOverlay,
             loadingCardOverlay ? 1 : 0);
-        float loadingCardRectHeight =
-            loadingCardSize.Height == 448 ? 288f : 240f;
-        _gl.Uniform4(
-            _upscaleLoadingCardRect,
-            0f,
-            (210f - loadingCardRectHeight * 0.5f) / 720f,
-            1f,
-            loadingCardRectHeight / 720f);
-        _gl.Uniform4(
-            _upscaleLoadingCardSampleRect,
-            0f,
-            32f / loadingCardSize.Height,
-            1f,
-            (loadingCardSize.Height - 64f) / loadingCardSize.Height);
+        if (isDemolition)
+        {
+            // The loading picture occupies native rows 16..127 of the 240-line
+            // canvas at full width, and the Dreamcast card is that same band at
+            // 2x with no padding of its own, so it maps one to one.
+            _gl.Uniform4(
+                _upscaleLoadingCardRect, 0f, 16f / 240f, 1f, 112f / 240f);
+            _gl.Uniform4(_upscaleLoadingCardSampleRect, 0f, 0f, 1f, 1f);
+            // The arena title sits between native rows 21 and 49. A channel
+            // difference of 0.35 separates its glyphs, which disagree with the
+            // card by 0.83 at the ninetieth percentile, from the art beneath,
+            // which agrees to within 0.21 at the ninety-ninth.
+            _gl.Uniform3(_upscaleLoadingCardTitleKey, 0.088f, 0.202f, 0.35f);
+        }
+        else
+        {
+            float loadingCardRectHeight =
+                loadingCardSize.Height == 448 ? 288f : 240f;
+            _gl.Uniform4(
+                _upscaleLoadingCardRect,
+                0f,
+                (210f - loadingCardRectHeight * 0.5f) / 720f,
+                1f,
+                loadingCardRectHeight / 720f);
+            _gl.Uniform4(
+                _upscaleLoadingCardSampleRect,
+                0f,
+                32f / loadingCardSize.Height,
+                1f,
+                (loadingCardSize.Height - 64f) / loadingCardSize.Height);
+            _gl.Uniform3(_upscaleLoadingCardTitleKey, 0f, 0f, 0f);
+        }
         if (loadingCardOverlay)
         {
             if (!loadingCardArena!.Equals(
@@ -380,7 +439,7 @@ internal sealed class PresentationRenderer : IDisposable
             {
                 Console.WriteLine(
                     $"[TexturePack] selected loading card overlay " +
-                    $"arena={loadingCardArena}: " +
+                    $"arena={loadingCardArena} pass={_upscalePass}: " +
                     _loadingCardPaths[loadingCardArena]);
                 _lastLoadingCardArena = loadingCardArena;
             }
@@ -394,7 +453,12 @@ internal sealed class PresentationRenderer : IDisposable
             // diagnostic latch between loading transitions so the smoke
             // harness can prove that the HD card was selected on every visit.
             _lastLoadingCardArena = null;
+            if (_loadingCardWasActive)
+                Console.WriteLine(
+                    $"[TexturePack] loading card overlay ended pass={_upscalePass}");
         }
+        _loadingCardWasActive = loadingCardOverlay;
+        _upscalePass++;
         _gl.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
 
         uint finalTexture = _upscaleTexture;

@@ -5,86 +5,6 @@ at the `gameplay_settled` stage, 1920x1080, Enhanced preset, unless stated
 otherwise. Frame pacing sits at 50-55 deadline misses per 60 frames throughout;
 none of the work below moved it outside that band.
 
-## Done
-
-1. Widescreen framing. `V()` added the target margin to the packed screen X and
-   the recovered projection centre, and the vertex shader added it again through
-   `uPosBias`, so the whole 3D view sat one margin (54 native pixels at 16:9)
-   right of centre. Craft centre 62.6% of frame width -> 49.9%. This was also
-   the cause of the torn gameplay edge: backdrop visible through the left margin
-   fell from 57,446 pixels to 17, and the right margin sits at 202.
-
-2. The horizon. Distant terrain drew as a black band because the Dreamcast table
-   fog mixes toward the arena's COLS colour and that colour was read from V8:2's
-   `gp+0xDA4`; Demolition's block is shifted, the read returned zero, and every
-   distant surface faded to black. Now read from `gp+0xCF0`, confirmed against
-   the Dreamcast executable - see `tools\recompone-demolition\dreamcast`.
-
-3. The terrain scan converter now runs with a 16:9 frustum
-   (`ExpandTerrainFrustum` around 0x8001CC78). Emitted terrain cells 473 -> 587.
-   Without it the right margin loses 535 pixels to backdrop rather than 202.
-
-4. The 2D overlay layer. Nothing drew - no radar, armour ring or reticle, and
-   pausing froze the world with no menu on it. The post-hook on 0x80035930 was
-   submitting the world ordering table as soon as the world renderer returned,
-   but the engine keeps adding the HUD and the modal overlays to that same table
-   afterwards, so everything added later was never submitted. The native
-   end-of-frame submission already draws the complete table.
-
-5. Four indirect call targets were resolved to literals but never recompiled, so
-   the run died with "unmapped call" the first time each was reached - one in
-   the model renderer on the pause-to-quit route, two in the shell overlays that
-   own the frontend. Iterated to a fixed point.
-
-6. Demolition's right-hand HUD widget anchors to the right margin instead of
-   being dragged inboard with the radar.
-
-7. Fog falloff. The shader's density was V8:2's 0.275390625; Demolition's
-   installer at 0x8C058A20 passes 0.252f, which the PVR register's 8.8 encoding
-   truncates to 0.251953125. It is passed as `uFogDensity` now. Demolition never
-   writes the 128-entry `FOG_TABLE` - every call to the register helper at
-   0x8C0CCA28 uses an offset below 0x200 - so the reconstructed table needs no
-   per-game variant.
-
-8. Arena ground textures come from the Dreamcast now. Terrain resolves to
-   Dreamcast art on 100% of lookups (37,376 of 37,376, no misses); overall
-   texture coverage went from 0% to 29%. Both versions store the set the same
-   way, as an eight-bit image and its palette in the `XBMP` chunk of the .EXP -
-   the PlayStation as one sheet of 48-pixel cells, the Dreamcast as one 64x64
-   texture per cell - and the counts agree exactly for all eight arenas.
-   Correlation pairs them row-major, the intended cell scoring above 0.97
-   against a rival below 0.75. Ten Death Star cells keep the original art:
-   they carry real structure and still disagree with the texture that would
-   land on them, which is art the later version redrew. Built by
-   `tools\recompone-demolition\texturepack\build_terrain_atlases.py`.
-
-9. Loading screens come from the Dreamcast. The overlay existed but was gated
-   on the title being Vigilante 8, and keyed on a signal that describes only
-   the closing frame here; Demolition draws the screen from the `SHELL_LOAD`
-   overlay, which stays resident into the match, so the gameplay flag is what
-   closes the window. The Dreamcast picture is the PlayStation band at exactly
-   2x, which lets a difference key preserve the engine-drawn arena title over
-   the replaced art instead of holding back a strip of the original.
-
-10. The horizon fades across the mid distance instead of hitting a wall. The
-    PowerVR fog window spans a depth ratio of only 1.725, so the reconstructed
-    curve gives no fog at all to 8,000 camera units and full saturation by
-    16,000 - an arena at full contrast right up to a narrow band where it
-    washes out. Widening the near edge of that window starts the fade at about
-    4,000 and eases it across (0.12 at 6,000, 0.34 at 8,000, 0.60 at 10,000,
-    0.84 at 12,000) while leaving the far edge alone, so the horizon keeps its
-    authored colour. Behind `SoftHorizon`, on outside the original preset.
-
-11. Palette banding is rebuilt in screen space. A magnified PlayStation
-    texture shows its palette as plateaus ending in a step of about eight
-    levels, and nothing inside the texture can undo that - neighbouring texels
-    hold the same entry, so filtering them returns the same value. Counting
-    neighbours that match exactly separates a plateau from detail where the
-    local range cannot: 76% of adjacent sky pixels are exactly equal and 60%
-    on untextured far terrain, against 42% on textured ground. Sky plateaus
-    fall to 32% and a vertical line through the sky carries 72 distinct
-    colours rather than 42. Behind `GradientSmoothing`.
-
 ## Open
 
 1. The rest of the texture pack. 29% of lookups are covered; the remainder is
@@ -155,8 +75,8 @@ none of the work below moved it outside that band.
    a measured frame cost before the default moves.
 
 8. Fading between screens is coarse and banded. This is the screen-to-screen
-   transition, not the distance fade in Done 10. Worth reverse engineering the
-   Dreamcast's version.
+   transition, not the distance fade over the horizon, which is done. Worth
+   reverse engineering the Dreamcast's version.
 
 9. Skybox seams. Not investigated.
 

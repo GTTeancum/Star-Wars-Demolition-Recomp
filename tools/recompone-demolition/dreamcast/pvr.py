@@ -82,24 +82,23 @@ def decode(data, offset=0, palette=None):
     """Decode one PVRT chunk. Returns (width, height, rgba bytes)."""
     if data[offset:offset + 4] != b"PVRT":
         raise ValueError("not a PVRT chunk")
+    chunk_size = struct.unpack_from("<I", data, offset + 4)[0]
     pixel_format = data[offset + 8]
     data_format = data[offset + 9]
     width, height = struct.unpack_from("<HH", data, offset + 12)
     body = offset + 16
+    # The mip chain precedes the top level and carries a dummy entry whose size
+    # differs per format, so counting forward gets it wrong by a byte or two and
+    # shifts every texel - which decodes to a recognisable but speckled image.
+    # The top level always ends at the chunk end, so count back from there.
+    chunk_end = offset + 8 + chunk_size
 
     if data_format in VQ_FORMATS:
         entries = 256 if data_format in (VQ, VQ_MIP) else 64
         codebook = body
         body += entries * 8
         if data_format in MIPPED:
-            # Index mips are 1/4 the pixels each; skip down to the largest.
-            skip = 0
-            side = width >> 1
-            while side >= 1:
-                skip += side * side
-                side >>= 1
-            # The chain that precedes the top level excludes the top level.
-            body += skip - (width >> 1) * (height >> 1)
+            body = chunk_end - (width >> 1) * (height >> 1)
         out = bytearray(width * height * 4)
         table = _twiddle_table(max(width, height) >> 1)
         bw, bh = width >> 1, height >> 1
@@ -118,12 +117,7 @@ def decode(data, offset=0, palette=None):
         if palette is None:
             raise NotImplementedError("palettised PVR needs its CL32 palette")
         if data_format in MIPPED:
-            skip = 0
-            side = width >> 1
-            while side >= 1:
-                skip += side * side
-                side >>= 1
-            body += skip
+            body = chunk_end - width * height
         out = bytearray(width * height * 4)
         table = _twiddle_table(min(width, height))
         block = min(width, height)
@@ -142,12 +136,7 @@ def decode(data, offset=0, palette=None):
 
     # 16-bit layouts.
     if data_format in MIPPED:
-        skip = 0
-        side = width >> 1
-        while side >= 1:
-            skip += side * side
-            side >>= 1
-        body += skip * 2
+        body = chunk_end - width * height * 2
 
     out = bytearray(width * height * 4)
     if data_format in (RECTANGLE, STRIDE):

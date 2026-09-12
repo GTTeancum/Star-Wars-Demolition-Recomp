@@ -49,8 +49,22 @@ writes every one in the game to PNG:
 python tools\recompone-demolition\dreamcast\extract_textures.py
 ```
 
-2,398 of 2,408 come out; the ten that do not are 4bpp palettised, which the
-game uses for almost nothing.
+2,413 of 2,423 come out. The remaining ten are 4bpp mipmapped, which nothing in
+the game appears to use.
+
+Textures are not only in the .EXP level archives, and the ones that are not are
+the interesting ones. `SHELL/LOAD.TBL`, `SHELL/RESOURCE.TBL` and
+`SHARED/HUD.TBL` are plain tables - a count, then offsets - rather than FORM
+containers, and they hold four complete font atlases (256x256 4bpp, ASCII plus
+the controller button glyphs), the title art, the radar and HUD plates, and the
+loading background gradient. There is no separate loading-screen artwork: a
+Dreamcast loading screen is the title art, a gradient and a font composited at
+runtime.
+
+Those 4bpp and 8bpp plates carry no palette of their own - no CL32, no PVPL -
+so `pvr.decode` renders their indices as a grey ramp unless a palette is passed.
+That is enough to identify an image but not to use it; the palette source has
+not been found yet.
 
 What the format needed, none of which is guessable:
 

@@ -132,7 +132,30 @@ def decode(data, offset=0, palette=None):
         return width, height, bytes(out)
 
     if data_format in (PALETTIZE4, PALETTIZE4_MIP):
-        raise NotImplementedError("4bpp palettised PVR not seen in this game")
+        # The loading screens and several frontend plates are 4bpp. Their
+        # palette is not stored alongside them - there is no CL32 or PVPL in
+        # those tables - so without one supplied the indices are rendered as a
+        # grey ramp, which is enough to identify the image.
+        if data_format in MIPPED:
+            body = chunk_end - (width * height) // 2
+        out = bytearray(width * height * 4)
+        table = _twiddle_table(min(width, height))
+        block = min(width, height)
+        for oy in range(0, height, block):
+            for ox in range(0, width, block):
+                base = body + (oy * width + ox * block) // 2
+                for y in range(block):
+                    for x in range(block):
+                        t = _twiddled_index(x, y, table)
+                        byte = data[base + (t >> 1)]
+                        entry = (byte >> 4) if (t & 1) else (byte & 0x0F)
+                        o = ((oy + y) * width + ox + x) * 4
+                        if palette is not None:
+                            out[o:o + 4] = bytes(palette[entry])
+                        else:
+                            v = entry * 17
+                            out[o:o + 4] = bytes((v, v, v, 255))
+        return width, height, bytes(out)
 
     # 16-bit layouts.
     if data_format in MIPPED:

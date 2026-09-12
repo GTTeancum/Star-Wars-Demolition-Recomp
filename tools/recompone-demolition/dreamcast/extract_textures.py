@@ -17,16 +17,23 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import gdi
 import pvr
 
+# Textures are not only in the .EXP level archives. The loading screens live in
+# SHELL/LOAD.TBL, the HUD art in SHARED/HUD.TBL, and the frontend set in
+# RESOURCE.TBL, none of which are FORM containers - they are plain tables with a
+# count and offsets. Scanning for PVRT covers all of them the same way.
 ARCHIVES = {
     "LEVELS": ["CLOUDCTY.EXP", "DAGOBAH.EXP", "DESERT.EXP", "DETHSTAR.EXP",
                "HOTH.EXP", "MOSEISLY.EXP", "NABOO.EXP", "YAVIN4.EXP"],
-    "SHARED": ["COMMON.EXP"],
-    "SHELL": ["SHELL.EXP"],
+    "SHARED": ["COMMON.EXP", "HUD.TBL", "FILLER.PVR"],
+    "SHELL": ["SHELL.EXP", "LOAD.TBL", "RESOURCE.TBL"],
+    "": ["CRILOGO.PVR"],
 }
 
 
 def chunks(data):
-    """Top-level IFF chunks as (id, start, end)."""
+    """Top-level IFF chunks as (id, start, end). Empty for non-FORM files."""
+    if data[:4] != b"FORM":
+        return []
     out = []
     off = 12
     while off + 8 <= len(data):
@@ -94,9 +101,10 @@ def main() -> int:
     args = parser.parse_args()
 
     lba, size = gdi.root()
+    entries_root = list(gdi.parse_dir(lba, size))
     directories = {name.strip(): (ext, sz)
-                   for name, ext, sz, flags in gdi.parse_dir(lba, size)
-                   if flags & 2}
+                   for name, ext, sz, flags in entries_root if flags & 2}
+    directories[""] = (lba, size)
     total_written = total_failed = 0
     for directory, names in ARCHIVES.items():
         if directory not in directories:

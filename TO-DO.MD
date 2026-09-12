@@ -46,7 +46,26 @@ none of the work below moved it outside that band.
    Widening changes the size that hold compares against. The flag suppresses
    the hold while a selector is widened, which is unverified.
 
-5. Buildings disappear in dense arenas. Suspected
+5. The HUD warning banner tears - reopened, because the fix is unconfirmed.
+   The anchor sent the right-hand corner widget to the right margin on screen
+   position alone, splitting the band at 40% of the window; text there is one
+   quad per glyph, so glyphs either side of the split went to opposite edges.
+   The corner test now also requires a plate-sized textured tile or an
+   untextured one, which no glyph can satisfy - tracing the band shows the
+   radar as a single 52x51 plate, the damage ring as a single 60x53 one, and
+   the shield arc as untextured single pixels. The corner widgets are
+   confirmed not to move (radar centroid 335.7 -> 336.1, ring 1563.1 ->
+   1562.9) but the banner itself has never been on screen for a capture.
+
+   Putting it there from a script is blocked. The banner wants a damaged
+   vehicle and no replay takes a hit; the existing defeat injection is V8:2's
+   and does not apply here, because `_playerVehicle` is only ever set from
+   `TraceVehicleCreateRequest`, which Demolition does not reach - the hook
+   reports 0x00000000. Scripting this needs Demolition's own player-vehicle
+   pointer and damage entry point first. Until then it wants confirming in
+   play, with shields low.
+
+6. Buildings disappear in dense arenas. Suspected
    `RECOMPONE_DEMOLITION_DRAW_BUDGET`, which defaults to 64. Untested; it needs
    a measured frame cost before the default moves.
 

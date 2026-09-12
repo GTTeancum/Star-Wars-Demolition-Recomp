@@ -625,9 +625,6 @@ internal static class GlShaders
                 maximumAmount;
             return clamp(mix(rgb, uFogColor, amount), 0.0, 1.0);
         }
-        vec3 stockPaintCorrection8(ivec3 c8) {
-            return stockPaintCorrection(vec3(c8) / 255.0);
-        }
         vec3 quant5(ivec3 c8) {
             if (uTrueColor != 0)
                 return vec3(clamp(c8, 0, 255)) / 255.0;
@@ -859,14 +856,32 @@ internal static class GlShaders
                     : uBlendOpaque;
                 return;
             }
-            ivec3 t8 = ivec3(texel.rgb * 31.0 + 0.5) << 3;
-            ivec3 modulation = ivec3(vertexColor.rgb * 255.0 + 0.5);
+            // The PS1 samples a 16-bit texel, so the hardware path rounds to
+            // five bits per channel and expands by three. A replacement
+            // texture carries eight, and crushing it first throws that away:
+            // it puts the source values on a ladder of eight, which
+            // modulation preserves, and a slow gradient across a large
+            // surface then bands into visible contours. True colour keeps the
+            // texel continuous. The 248.0 is 31 << 3, so the scale - and with
+            // it every brightness in the frame - is unchanged; only the
+            // rounding to the rung is gone.
+            vec3 t8 = uTrueColor != 0
+                ? texel.rgb * 248.0
+                : vec3(ivec3(texel.rgb * 31.0 + 0.5) << 3);
+            vec3 modulation = uTrueColor != 0
+                ? vertexColor.rgb * 255.0
+                : vec3(ivec3(vertexColor.rgb * 255.0 + 0.5));
             // Native PS1 packets use /128 colour modulation. Converted N64
             // route shades come from the RDP, whose 8-bit combiner multiplies
             // by /255. Keep the two numeric domains explicit.
-            ivec3 c8 = vN64RouteColor != 0
-                ? (t8 * modulation + 127) / 255
-                : (t8 * modulation) >> 7;
+            vec3 cf = vN64RouteColor != 0
+                ? (uTrueColor != 0
+                    ? t8 * modulation / 255.0
+                    : floor((t8 * modulation + 127.0) / 255.0))
+                : (uTrueColor != 0
+                    ? t8 * modulation / 128.0
+                    : floor(t8 * modulation / 128.0));
+            ivec3 c8 = ivec3(cf + 0.5);
             if (enhancedEffectContour) {
                 bool exactBlendEffect = exactBlendMaterial;
                 float effectEnergy = max(
@@ -905,7 +920,8 @@ internal static class GlShaders
                 contourCoverage *= effectCoverage * effectCoverage;
                 if (contourCoverage <= 0.001) discard;
             }
-            vec3 corrected = distanceFog(stockPaintCorrection8(c8));
+            vec3 corrected = distanceFog(
+                stockPaintCorrection(clamp(cf / 255.0, 0.0, 1.0)));
             float materialAlpha = vMaterial == MaterialWaterSurface
                 ? 0.5019607843
                 : max(texel.a, uSetMask);

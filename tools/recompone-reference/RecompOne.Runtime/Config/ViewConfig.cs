@@ -79,6 +79,31 @@ public class ViewConfig
         set => SetInt("InternalResolutionScale", Math.Clamp(value, 1, 4));
     }
 
+    /// <summary>
+    /// Rebuilds the colour levels a small palette never had, across the
+    /// plateaus it leaves in a magnified texture. The hardware could not do
+    /// this, so it is an enhancement rather than a restoration and the
+    /// original preset leaves it off.
+    /// </summary>
+    public bool GradientSmoothing
+    {
+        get => GetBool("GradientSmoothing", true);
+        set => SetBool("GradientSmoothing", value);
+    }
+
+    /// <summary>
+    /// Spreads the distance fade over the mid distance instead of the narrow
+    /// band the PowerVR fog table gives it, which leaves an arena at full
+    /// contrast to about 9,000 units and then saturates it by 16,000. The
+    /// horizon keeps its authored colour; only the approach to it changes.
+    /// An enhancement, so the original preset leaves it off.
+    /// </summary>
+    public bool SoftHorizon
+    {
+        get => GetBool("SoftHorizon", true);
+        set => SetBool("SoftHorizon", value);
+    }
+
     public bool TextureSmoothing
     {
         get => GetBool("TextureSmoothing", true);
@@ -228,6 +253,8 @@ public class ViewConfig
             HighResolution3D == !original &&
             InternalResolutionScale == (original ? 1 : 3) &&
             TextureSmoothing == !original &&
+            SoftHorizon == !original &&
+            GradientSmoothing == !original &&
             HighResolutionTextures == !original &&
             PerspectiveCorrectTextures == !original &&
             GeometryCorrection == !original &&
@@ -293,6 +320,8 @@ public class ViewConfig
         HighResolution3D = !original;
         InternalResolutionScale = original ? 1 : 3;
         TextureSmoothing = !original;
+        SoftHorizon = !original;
+        GradientSmoothing = !original;
         HighResolutionTextures = !original;
         PerspectiveCorrectTextures = !original;
         GeometryCorrection = !original;

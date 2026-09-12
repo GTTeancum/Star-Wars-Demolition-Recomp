@@ -864,6 +864,7 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
     int _uTextureSmoothing, _uTextureMipmaps, _uAnisotropy;
     int _uEnhancedShadows, _uEnhancedParticles, _uEnhancedFog;
     int _uFogColor, _uFogColorValid, _uDreamcastFogActive, _uFogDensity;
+    int _uFogSoftening;
     // The arena's own horizon colour, harvested from the full-display backdrop
     // quad the engine draws behind every gameplay frame. Distance fog has to
     // converge on this, not on a synthetic haze, or far geometry never joins
@@ -1139,6 +1140,8 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
         _uDreamcastFogActive =
             _gl.GetUniformLocation(_progPrim, "uDreamcastFogActive");
         _uFogDensity = _gl.GetUniformLocation(_progPrim, "uFogDensity");
+        _uFogSoftening =
+            _gl.GetUniformLocation(_progPrim, "uFogSoftening");
         _uPerspectiveCorrectTextures =
             _gl.GetUniformLocation(_progPrim, "uPerspectiveCorrectTextures");
         _uPerspectiveCorrectColors =
@@ -5008,6 +5011,9 @@ public sealed class EnhancedGlBackend : Hle.IGpuBackend
             _gl.Uniform1(
                 _uFogDensity,
                 IsDemolition ? 0.251953125f : 0.275390625f);
+            _gl.Uniform1(
+                _uFogSoftening,
+                ConfigManager.View.SoftHorizon ? 1f : 0f);
             _gl.Uniform1(
                 _uPerspectiveCorrectTextures,
                 ConfigManager.View.PerspectiveCorrectTextures ? 1 : 0);

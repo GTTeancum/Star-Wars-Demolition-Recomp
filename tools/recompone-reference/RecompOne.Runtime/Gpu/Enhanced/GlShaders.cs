@@ -265,6 +265,7 @@ internal static class GlShaders
         uniform int   uFogColorValid;
         uniform int   uDreamcastFogActive;
         uniform float uFogDensity;
+        uniform float uFogSoftening;
         uniform int   uPerspectiveCorrectTextures;
         uniform int   uPerspectiveCorrectColors;
         uniform int   uTrueColor;
@@ -526,7 +527,23 @@ internal static class GlShaders
             else
                 opacity =
                     (inverseDepth - 0.080000006) * 17.241377;
-            return floor(clamp(opacity, 0.0, 1.0) * 255.0) / 255.0;
+            opacity = floor(clamp(opacity, 0.0, 1.0) * 255.0) / 255.0;
+            if (uFogSoftening <= 0.0)
+                return opacity;
+            // The hardware window runs from 0.08 to 0.138, a span of only
+            // 1.725 in depth: nothing fogs until about 9,000 units and
+            // everything has saturated by 16,000. Every arena is therefore
+            // drawn at full contrast right up to a band where it washes out
+            // over a short distance, which is what makes the horizon read as
+            // a hard edge rather than depth.
+            //
+            // Widening the near edge of that window starts the fade in the
+            // mid distance and eases it across, and the far end is left where
+            // the hardware put it so the horizon keeps its authored colour.
+            float lo = mix(0.080000006, 0.0336, uFogSoftening);
+            float t = clamp(
+                (inverseDepth - lo) / max(0.13800001 - lo, 1e-6), 0.0, 1.0);
+            return mix(opacity, t * t * (3.0 - 2.0 * t), uFogSoftening);
         }
         float dreamcastFogAmount(float ps1Depth) {
             // The converted levels retain a 256:1 PS1-to-Dreamcast world

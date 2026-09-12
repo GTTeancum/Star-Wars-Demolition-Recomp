@@ -85,3 +85,22 @@ What the format needed, none of which is guessable:
 - `COLS` is 32 bytes, eight colour words. Word one is the atmosphere colour the
   fog fades toward - `63 3C 32` in DESERT.EXP, matching what the PS1 build holds
   at gp+0xCF0 and confirming `ColsFogOffset` from the disc side.
+
+## Building the PC texture pack from this
+
+`..\texturepack\build_terrain_atlases.py` pairs the two ground-texture
+sets and writes the manifest the runtime reads. Both versions store an
+arena's ground set as an eight-bit image and palette in `XBMP`; the
+PlayStation packs it into one sheet of 48-pixel cells and the Dreamcast
+keeps one 64x64 texture per cell, and the counts agree exactly for all
+eight arenas - 40 cells for most, 45 for Hoth, 44 for Yavin. Correlation
+pairs them in plain row-major order, the intended cell scoring above 0.97
+where a rival scores below 0.75. Ten Death Star cells keep the original
+art: they carry real structure and still disagree with the texture that
+would land on them, which is art the later version redrew.
+
+`build_loading_cards.py` turns the `XLSC` screens into the renderer's
+loading card overlays. The Dreamcast picture is the PlayStation band at
+exactly 2x - correlating a captured band against every vertical crop picks
+rows 0..223 with no horizontal adjustment - which is what lets the renderer
+keep the engine-drawn arena title over the replaced art.

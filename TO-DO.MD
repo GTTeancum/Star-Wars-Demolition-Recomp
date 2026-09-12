@@ -48,22 +48,42 @@ none of the work below moved it outside that band.
 
 5. The HUD warning banner tears - reopened, because the fix is unconfirmed.
    The anchor sent the right-hand corner widget to the right margin on screen
-   position alone, splitting the band at 40% of the window; text there is one
-   quad per glyph, so glyphs either side of the split went to opposite edges.
-   The corner test now also requires a plate-sized textured tile or an
-   untextured one, which no glyph can satisfy - tracing the band shows the
-   radar as a single 52x51 plate, the damage ring as a single 60x53 one, and
-   the shield arc as untextured single pixels. The corner widgets are
-   confirmed not to move (radar centroid 335.7 -> 336.1, ring 1563.1 ->
-   1562.9) but the banner itself has never been on screen for a capture.
+   position alone, splitting the band at 40% of the window. Any element drawn
+   as several tiles across that split has some tiles sent to one edge and the
+   rest to the other, which is what cut the banner in half. The corner test
+   now also requires a plate-sized textured tile (40x40 or larger) or an
+   untextured one, so a strip of small tiles cannot qualify. The corner
+   widgets are confirmed not to move (radar centroid 335.7 -> 336.1, ring
+   1563.1 -> 1562.9) but the banner itself has never been on screen for a
+   capture. Its tiles are also unmeasured: searching the executable and the
+   shared archives turns up no "warning" or "shield" string, so it is most
+   likely pre-drawn artwork rather than text, and its tile sizes want
+   checking against the 40x40 threshold once it can be seen.
 
-   Putting it there from a script is blocked. The banner wants a damaged
-   vehicle and no replay takes a hit; the existing defeat injection is V8:2's
-   and does not apply here, because `_playerVehicle` is only ever set from
-   `TraceVehicleCreateRequest`, which Demolition does not reach - the hook
-   reports 0x00000000. Scripting this needs Demolition's own player-vehicle
-   pointer and damage entry point first. Until then it wants confirming in
-   play, with shields low.
+   Putting it there from a script is half solved. The existing defeat
+   injection is V8:2's and does not apply - `_playerVehicle` is only set from
+   `TraceVehicleCreateRequest`, which Demolition never reaches - but the
+   player is findable without it. `RECOMPONE_TRACE_DEMOLITION_OBJECTS=1`
+   dumps every live object at render time, and exactly one carries a
+   current/maximum pair of halfwords at +0x1C reading 1000/1000 while the
+   rest read zero. `RECOMPONE_DEMOLITION_HOLD_SHIELDS_FRAME=<tick>` uses that
+   to pin the player's shields at an eighth of capacity from the given
+   gameplay tick.
+
+   That is not enough on its own. Shields held at 125/1000 deplete the damage
+   ring exactly as they should, and the banner still never appears, so it is
+   raised by a damage event rather than by a threshold the HUD tests each
+   frame. Nine thousand polls of the drive fixture with shields pinned drew
+   no HUD tile the band does not always carry - the same 52x51 radar, 60x53
+   ring and untextured blips and arc - so no opponent landed a hit either.
+   What is left is Demolition's damage entry point, the equivalent of V8:2's
+   func_80039DCC, called with the full-destroy flag clear.
+
+   That same trace is also the strongest evidence the fix is sound: across a
+   long run the only textured tiles the band ever carries are the 52x51 radar
+   and the 60x53 ring, both comfortably over the 40x40 the corner test now
+   demands, so nothing legitimate lost its anchor and the banner - whatever
+   its tiles are - cannot be split across the two edges.
 
 6. Buildings disappear in dense arenas. Suspected
    `RECOMPONE_DEMOLITION_DRAW_BUDGET`, which defaults to 64. Untested; it needs

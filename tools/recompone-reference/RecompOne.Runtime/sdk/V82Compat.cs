@@ -2797,9 +2797,44 @@ public static class V82Compat
             $"v82-vehicle-object=0x{scope.ObjectAddress:X8}");
     }
 
+    // Holds the player's shields down so the low-shield warning appears. The
+    // banner cannot otherwise be captured: no scripted replay takes a hit,
+    // and the defeat injection that exists resolves the player through a
+    // pointer only Vigilante 8 sets. Demolition's vehicle carries its shields
+    // as a current/maximum pair of halfwords at +0x1C - a render-time dump of
+    // every live object shows exactly one holding 1000/1000 while the rest
+    // read zero - so the object can be recognised by that pair alone.
+    static readonly int _demolitionHoldShieldsFrame = Math.Max(
+        0, ReadOptionalInt("RECOMPONE_DEMOLITION_HOLD_SHIELDS_FRAME") ?? 0);
+    static bool _demolitionShieldsHeld;
+
     public static void BeginDemolitionObjectRender(CpuContext c, IMemory m)
     {
         m = Dispatcher.UnwrapMemory(m);
+        if (_demolitionHoldShieldsFrame > 0 &&
+            GpuHle.DebugGameplayTick >= _demolitionHoldShieldsFrame)
+        {
+            ushort shields = m.ReadU16(c.A0 + 0x1Cu);
+            ushort capacity = m.ReadU16(c.A0 + 0x1Eu);
+            if (capacity > 0 && shields > 0 && shields <= capacity)
+            {
+                // An eighth of capacity sits inside the warning band without
+                // wrecking the vehicle, and it is reapplied every frame so
+                // regeneration cannot lift it back out before a capture.
+                var held = (ushort)Math.Max(1, capacity / 8);
+                if (shields != held)
+                {
+                    m.WriteU16(c.A0 + 0x1Cu, held);
+                    if (!_demolitionShieldsHeld)
+                    {
+                        _demolitionShieldsHeld = true;
+                        Console.Error.WriteLine(
+                            $"[DemolitionShields] object=0x{c.A0:X8} " +
+                            $"{shields}/{capacity} held at {held}");
+                    }
+                }
+            }
+        }
         uint packetStart = m.ReadU32(c.GP + 0x5E8u);
         ObjectRenderScopes.Push(new ObjectRenderScope(
             c.A0,

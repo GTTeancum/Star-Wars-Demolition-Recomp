@@ -18,6 +18,8 @@ loose files only: no CUE or BIN is opened by the finished executable.
 - Adds a gameplay-only 16:9 view with widened terrain and object visibility,
   perspective-correct textures, true-colour output without dithering, and
   HUD-safe FXAA while preserving the authored 4:3 frontend.
+- Draws every arena's ground textures and all eight loading screens from the
+  Dreamcast release, built from that disc by the tools below.
 
 This is intentionally a playability build, not a fidelity-complete port.
 
@@ -36,6 +38,11 @@ This is intentionally a playability build, not a fidelity-complete port.
 - Completed quality-of-life video work includes FXAA, disabled dithering,
   perspective-correct texture output, a gameplay widescreen option, and the
   single-executable publish path.
+- Two settings go beyond the original hardware and are on outside the
+  `original` graphics preset: `SoftHorizon` spreads the distance fade across
+  the mid distance rather than the narrow band the PowerVR fog table gives it,
+  and `GradientSmoothing` rebuilds the colour levels a small palette never
+  had. Both are described in `TO-DO.MD`.
 - The remaining work is tracked in `TO-DO.MD`; keep that file as the short,
   numbered source of truth and remove items as they are completed.
 
@@ -53,6 +60,25 @@ python tools\recompone-demolition\prepare_loose_media.py `
 ```
 
 Retail data under `game` is user-supplied and ignored by Git.
+
+## Build the texture pack
+
+The pack is derived from a Dreamcast copy of the game and lands in
+`game\mods\enhanced_textures_2x`, which is outside the repository along with
+the rest of the retail data - so it does not survive a fresh clone and has to
+be regenerated. Point `extract_textures.py` at a Dreamcast disc image first;
+`tools\recompone-demolition\dreamcast\README.md` covers that side.
+
+```powershell
+python tools\recompone-demolition\dreamcast\extract_textures.py
+
+python tools\recompone-demolition\texturepack\build_terrain_atlases.py
+
+python tools\recompone-demolition\dreamcast\build_loading_cards.py
+```
+
+Without it the runtime reports `no replacement pack found` and draws the
+original textures, which is a supported state rather than a failure.
 
 ## Generate and publish
 
@@ -90,8 +116,12 @@ dotnet run --project reference\generated\StarWarsDemolitionPC.csproj `
 - Ordinary 2D frontend and HUD layouts keep their native 4:3 framing. Gameplay
   widescreen is active, but edge coverage and the 3D Jabba's Palace frontend
   still need dedicated widescreen work.
-- Full terrain fidelity, longer-range world visibility, and texture-pack
-  support remain open in `TO-DO.MD`.
+- The texture pack covers the ground and the loading screens. About 71% of
+  texture lookups are still the original art - vehicles, buildings and HUD -
+  because those load as raw VRAM uploads rather than as identifiable images in
+  the archives. `RECOMPONE_VRAM_UPLOAD_DUMP_DIR` records them for that work.
+- Full terrain fidelity and longer-range world visibility remain open in
+  `TO-DO.MD`.
 
 Generated C#, build products, captures, and retail media remain local and are
 not tracked.

@@ -30,26 +30,7 @@ none of the work below moved it outside that band.
    GAME.FNT merges the symbol block of one Dreamcast sheet with the accented
    block of another.
 
-3. Far terrain is untextured beyond roughly 6000 camera units - textured
-   coverage by depth is 100% to 4000, 55% to 6000 and 0% past it. The fog fade
-   carries it and it reads correctly now, but the Dreamcast draws that range
-   textured.
-
-   Three things previously recorded as blockers are not. The pairing stride is
-   0x1C, identical to V8:2, measured over 19 consecutive pairs. Both writers do
-   tag their cells - the route writer at 0x8002ABEC contributes about 10,000
-   tags a frame, and an earlier note claiming it never tagged came from a
-   40-sample trace that was simply too early. And the terrain CLUT, which was
-   read from V8:2's gp+0xDA8 and returned 0x0001, now reads correctly from
-   gp+0xCF4.
-
-   What remains is the vertex ordering inside each half. With everything above
-   corrected, 79% of halves pair and the rebuilt quads still come out twisted,
-   so the far arena grows triangular shards and a checkerboard. Compare
-   Demolition's route and detail writers against V8:2's for the order the three
-   vertices of each half are written in.
-
-4. The frontend loses its 3D layer after a match. Jabba's palace, the character
+3. The frontend loses its 3D layer after a match. Jabba's palace, the character
    model and the arena globe are absent against black while the 2D layer draws
    normally, and it comes back on the next screen.
    `_retiredGameplayRenderFence` in `V82Compat` is raised when the shell takes
@@ -57,7 +38,7 @@ none of the work below moved it outside that band.
    is not one of those, so the fence stays up until you advance a screen. Clear
    it when the shell takes over rather than from the selector callbacks.
 
-5. The 3D Jabba's Palace frontend still renders at 4:3. Implemented behind
+4. The 3D Jabba's Palace frontend still renders at 4:3. Implemented behind
    `RECOMPONE_DEMOLITION_WIDE_FRONTEND=1`, off by default. The scene widens
    correctly and reveals two Bith musicians that 4:3 crops entirely, but the
    shell alternates two display buffers, one of which is incomplete, and
@@ -65,27 +46,27 @@ none of the work below moved it outside that band.
    Widening changes the size that hold compares against. The flag suppresses
    the hold while a selector is widened, which is unverified.
 
-6. The HUD warning banner tears. Anchoring the right-hand widget to the right
+5. The HUD warning banner tears. Anchoring the right-hand widget to the right
    margin keys on screen position, and the banner shares its rows with the
    damage ring, so "Warning Shields Low" is cut in half. Key the anchor on
    texture page instead of position.
 
-7. Buildings disappear in dense arenas. Suspected
+6. Buildings disappear in dense arenas. Suspected
    `RECOMPONE_DEMOLITION_DRAW_BUDGET`, which defaults to 64. Untested; it needs
    a measured frame cost before the default moves.
 
-8. Fading between screens is coarse and banded. This is the screen-to-screen
+7. Fading between screens is coarse and banded. This is the screen-to-screen
    transition, not the distance fade over the horizon, which is done. Worth
    reverse engineering the Dreamcast's version.
 
-9. Skybox seams. Not investigated.
+8. Skybox seams. Not investigated.
 
-10. About 200 pixels of backdrop still show through the right gameplay margin,
-    and 17 through the left. The PVR fog clamp registers are also still
-    unmodelled; they come from a per-render-state struct at +0x88 and +0x8C
-    rather than constants.
+9. About 200 pixels of backdrop still show through the right gameplay margin,
+   and 17 through the left. The PVR fog clamp registers are also still
+   unmodelled; they come from a per-render-state struct at +0x88 and +0x8C
+   rather than constants.
 
-11. The targeting reticle may sit slightly off its target. Pre-existing and
+10. The targeting reticle may sit slightly off its target. Pre-existing and
     unverified.
 
 ## Notes

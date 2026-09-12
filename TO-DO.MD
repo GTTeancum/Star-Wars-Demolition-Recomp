@@ -66,6 +66,25 @@ none of the work below moved it outside that band.
    2x, which lets a difference key preserve the engine-drawn arena title over
    the replaced art instead of holding back a strip of the original.
 
+10. The horizon fades across the mid distance instead of hitting a wall. The
+    PowerVR fog window spans a depth ratio of only 1.725, so the reconstructed
+    curve gives no fog at all to 8,000 camera units and full saturation by
+    16,000 - an arena at full contrast right up to a narrow band where it
+    washes out. Widening the near edge of that window starts the fade at about
+    4,000 and eases it across (0.12 at 6,000, 0.34 at 8,000, 0.60 at 10,000,
+    0.84 at 12,000) while leaving the far edge alone, so the horizon keeps its
+    authored colour. Behind `SoftHorizon`, on outside the original preset.
+
+11. Palette banding is rebuilt in screen space. A magnified PlayStation
+    texture shows its palette as plateaus ending in a step of about eight
+    levels, and nothing inside the texture can undo that - neighbouring texels
+    hold the same entry, so filtering them returns the same value. Counting
+    neighbours that match exactly separates a plateau from detail where the
+    local range cannot: 76% of adjacent sky pixels are exactly equal and 60%
+    on untextured far terrain, against 42% on textured ground. Sky plateaus
+    fall to 32% and a vertical line through the sky carries 72 distinct
+    colours rather than 42. Behind `GradientSmoothing`.
+
 ## Open
 
 1. The rest of the texture pack. 29% of lookups are covered; the remainder is
@@ -135,7 +154,8 @@ none of the work below moved it outside that band.
    `RECOMPONE_DEMOLITION_DRAW_BUDGET`, which defaults to 64. Untested; it needs
    a measured frame cost before the default moves.
 
-8. Fading between screens is coarse and banded. Worth reverse engineering the
+8. Fading between screens is coarse and banded. This is the screen-to-screen
+   transition, not the distance fade in Done 10. Worth reverse engineering the
    Dreamcast's version.
 
 9. Skybox seams. Not investigated.
